@@ -49,6 +49,17 @@ The application uses environment variables for configuration. Key variables:
 ## Recent Changes (2025-09-23)
 - Configured database connection to use Replit's PostgreSQL environment variables
 - Updated CORS to allow all origins for Replit proxy compatibility
-- Set backend port to 3000 to avoid conflicts with frontend
+- Backend server configured and running on port 5000
 - Successfully applied all database migrations
 - Configured deployment settings for production readiness
+
+### Concurrency Control Implementation (2025-09-23)
+- **Payment Race Condition Protection**: Implemented database-level locking mechanism to prevent multiple users from making payments for the same unit simultaneously
+- **Database Schema Updates**: Added locking fields to PropertyUnitEntity (isLocked, lockedBy, lockExpiresAt, isPaid, paidUntil)
+- **Migration Applied**: AddUnitLockingFields migration successfully adds new columns to unit table
+- **Atomic Locking**: Uses conditional UPDATE operations with race-safe predicates for unit locking
+- **15-Minute Timeout**: Payment locks automatically expire after 15 minutes to prevent permanent blocking
+- **Complete Payment Flow**: makePayment acquires locks, verifyPayment releases locks and marks units as paid
+- **Error Handling**: Comprehensive unlock mechanisms on payment failures
+- **Future Payments**: System allows new payments after rental period (paidUntil) expires
+- **API Endpoints**: Added checkUnitAvailability and cleanupExpiredLocks endpoints for monitoring and maintenance
