@@ -26,7 +26,7 @@ class App {
     process.env["NODE_CONFIG_DIR"] = __dirname + "/configs";
 
     this.app = express();
-    this.port = process.env.PORT || 80;
+    this.port = process.env.PORT || 3000;
     this.env = (process.env.NODE_ENV as typeof this.env) || "development";
 
     this.env !== "test" && this.connectToDatabase();
@@ -62,51 +62,9 @@ class App {
   }
 
   private initializeMiddlewares() {
-    const localhostWhitelist: { [x: string]: 1 } = {
-      [`${process.env.API_HOST}:${process.env.API_PORT}`]: 1,
-      [`${process.env.API_HOST}`]: 1,
-      [`http://127.0.0.1:5173`]: 1,
-      [`http://127.0.0.1:3001`]: 1,
-      [`http://localhost:5173`]: 1,
-      [`https://dev.letbud.com`]: 1,
-      [`https://www.letbud.com`]: 1,
-      [`https://beta.letbud.com`]: 1,
-      [`https://www.beta.letbud.com`]: 1,
-      [`${process.env.WEB_APP_URL}`]: 1,
-    };
-
-    const prodWhitelist: { [x: string]: 1 } = {
-      [`${process.env.HOST}:${process.env.API_PORT}`]: 1,
-      [`${process.env.API_HOST}`]: 1,
-      [`http://127.0.0.1:5173`]: 1,
-      [`http://127.0.0.1:3001`]: 1,
-      [`http://localhost:5173`]: 1,
-      [`https://dev.letbud.com`]: 1,
-      [`https://www.letbud.com`]: 1,
-      [`https://beta.letbud.com`]: 1,
-      [`https://www.beta.letbud.com`]: 1,
-      [`${process.env.WEB_APP_URL}`]: 1,
-    };
-    const whiteList = {
-      ...(this.env == "production" ? prodWhitelist : localhostWhitelist),
-    };
+    // For Replit environment, allow all origins during development
     const corsOptions: cors.CorsOptions = {
-      origin: (origin, callback) => {
-        // console.log(origin, whiteList[origin]);
-        // logger.info(
-        //   JSON.stringify({
-        //     env: this.env,
-        //     origin,
-        //     whiteList,
-        //     status: whiteList[origin],
-        //   })
-        // );
-        if (!origin || whiteList[origin]) {
-          callback(null, true);
-        } else {
-          callback(new Error("Not allowed by CORS"));
-        }
-      },
+      origin: true, // Allow all origins for development in Replit
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization", "Apikey"],
       credentials: true,
