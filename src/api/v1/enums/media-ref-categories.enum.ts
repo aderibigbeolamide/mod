@@ -1,0 +1,4 @@
+export enum MediaRefCategories {
+    PROPERTY = "PROPERTY",
+    PROPERTY_APPLICATION = "PROPERTY_APPLICATION"
+}

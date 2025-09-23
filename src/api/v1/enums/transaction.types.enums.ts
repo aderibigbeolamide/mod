@@ -1,0 +1,6 @@
+export enum TransactionTypes {
+    SHORT_TERM_RENTAL = "SHORT_TERM_RENTAL",
+    LONG_TERM_RENTAL = "LONG_TERM_RENTAL",
+    ROOM_BUDDY_RENTAL = "ROOM_BUDDY_RENTAL",
+    SALE = "SALE"
+}
