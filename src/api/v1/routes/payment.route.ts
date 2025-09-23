@@ -68,6 +68,21 @@ const PaymentRoute = Utility.swaggerRouteToAppRoute({
         handlerName: "refundPayment",
         method: "post",
       },
+    {
+      route: `/checkUnitAvailability/:unitId`,
+      handlerName: "checkUnitAvailability",
+      method: "get",
+      middleWares: [authenticateUser],
+      description: `Check if a unit is available for payment (not locked, occupied, or already paid).`,
+      parameters: [{ name: "unitId", in: "path", required: true, description: "The ID of the unit to check" }],
+    },
+    {
+      route: `/cleanupExpiredLocks`,
+      handlerName: "cleanupExpiredLocks",
+      method: "post",
+      middleWares: [authenticateUser],
+      description: `Cleanup expired payment locks from units.`,
+    },
   ],
 });
 

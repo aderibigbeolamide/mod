@@ -221,20 +221,20 @@ export class PropertyUnitEntity extends BaseEntity implements PropertyUnit {
 
   @Column({ type: "boolean", default: false }) isUnitOccupied: boolean;
 
-  // @Column({ default: false })
-  // isLocked: boolean;
+  @Column({ default: false })
+  isLocked: boolean;
 
-  // @Column({ nullable: true })
-  // lockedBy: string; // payerId
+  @Column({ nullable: true })
+  lockedBy: string; // payerId
 
-  // @Column({ type: 'timestamptz', nullable: true })
-  // lockExpiresAt: Date;
+  @Column({ type: 'timestamptz', nullable: true })
+  lockExpiresAt: Date;
 
-  // @Column({ default: false })
-  // isPaid: boolean;
+  @Column({ default: false })
+  isPaid: boolean;
 
-  // @Column({ type: 'timestamptz', nullable: true })
-  // paidUntil: Date | null;
+  @Column({ type: 'timestamptz', nullable: true })
+  paidUntil: Date | null;
 
   @Column({
     type: "enum",

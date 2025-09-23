@@ -175,6 +175,61 @@ const PaymentController = {
       logger.error(error);
       next(error);
     }
+  },
+
+  // Check unit availability for payment
+  async checkUnitAvailability(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { unitId } = req.params;
+
+      if (!unitId) {
+        res.status(400).json({
+          status: "error",
+          message: "Unit ID is required",
+        });
+        return;
+      }
+
+      const paymentServiceInstance = new paymentService();
+      
+      // Cleanup expired locks first
+      await paymentServiceInstance.cleanupExpiredLocks();
+      
+      // Check actual unit availability
+      const availability = await paymentServiceInstance.checkUnitAvailability(unitId);
+      
+      res.status(200).json({
+        status: "success",
+        message: "Unit availability checked successfully",
+        data: {
+          unitId: unitId,
+          available: availability.available,
+          message: availability.message,
+          recommendation: availability.available ? 
+            "Unit is available. You can proceed with payment." : 
+            "Unit is not available. Please try again later or choose a different unit."
+        }
+      });
+    } catch (error) {
+      logger.error("An error occurred while checking unit availability", error);
+      next(error);
+    }
+  },
+
+  // Cleanup expired locks
+  async cleanupExpiredLocks(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const paymentServiceInstance = new paymentService();
+      await paymentServiceInstance.cleanupExpiredLocks();
+
+      res.status(200).json({
+        status: "success",
+        message: "Expired locks cleaned up successfully"
+      });
+    } catch (error) {
+      logger.error("An error occurred while cleaning up expired locks", error);
+      next(error);
+    }
   }
 }
 
