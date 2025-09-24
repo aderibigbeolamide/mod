@@ -26,7 +26,7 @@ class App {
     process.env["NODE_CONFIG_DIR"] = __dirname + "/configs";
 
     this.app = express();
-    this.port = process.env.PORT || 3000;
+    this.port = process.env.BACKEND_PORT || 3000;
     this.env = (process.env.NODE_ENV as typeof this.env) || "development";
 
     this.env !== "test" && this.connectToDatabase();
