@@ -14,34 +14,34 @@ export class RequestCallEntity extends BaseEntity implements RequestCall {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ type: "uuid" })
+  @Column({ name: "user_id", type: "uuid" })
   userId: string;
 
   @Column({ nullable: false })
   email: string;
 
-  @Column({ nullable: false })
+  @Column({ name: "phone_number", nullable: false })
   phoneNumber: string;
 
-  @Column({ nullable: true })
+  @Column({ name: "preferred_call_time", nullable: true })
   preferredCallTime: string;
 
-  @Column({ type: "boolean", default: false })
+  @Column({ name: "is_email_overridden", type: "boolean", default: false })
   isEmailOverridden: boolean;
 
-  @Column({ type: "boolean", default: false })
+  @Column({ name: "is_phone_overridden", type: "boolean", default: false })
   isPhoneOverridden: boolean;
 
-  @Column({ nullable: true })
+  @Column({ name: "override_reason", nullable: true })
   overrideReason: string;
 
-  @Column({ type: "timestamp with time zone", nullable: true })
+  @Column({ name: "processed_at", type: "timestamp with time zone", nullable: true })
   processedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ name: "processed_in_batch", nullable: true })
   processedInBatch: string;
 
   @ManyToOne(() => UserEntity, { nullable: false })
-  @JoinColumn({ name: "userId" })
+  @JoinColumn({ name: "user_id" })
   user: UserEntity;
 }
