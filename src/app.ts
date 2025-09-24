@@ -38,10 +38,11 @@ class App {
   }
 
   public listen() {
-    this.app.listen(this.port, () => {
+    const port = Number(this.port);
+    this.app.listen(port, 'localhost', () => {
       logger.info(`=================================`);
       logger.info(`======= ENV: ${this.env} =======`);
-      logger.info(`🚀 App listening on the port ${this.port}`);
+      logger.info(`🚀 App listening on localhost:${port}`);
       logger.info(`=================================`);
     });
   }
