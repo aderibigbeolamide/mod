@@ -27,6 +27,7 @@ import LocationRoute from "./api/v1/routes/location.route.js";
 import PaymentRoute from "./api/v1/routes/payment.route.js";
 import PaymentTransactionRoute from "./api/v1/routes/paymentTransaction.route.js";
 import VerifyRoute from "./api/v1/routes/verify.route.js";
+import RequestCallRoute from "./api/v1/routes/request-call.route.js";
 
 // dotenv.config()
 const app = new App([
@@ -48,5 +49,6 @@ const app = new App([
   PaymentRoute(),
   PaymentTransactionRoute(),
   VerifyRoute(),
+  RequestCallRoute(),
 ]);
 app.listen();

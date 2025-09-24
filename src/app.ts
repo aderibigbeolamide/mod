@@ -13,12 +13,14 @@ import { dataSource } from "./config/database.config.js";
 import { AppName, v1Base } from "./config/constants.js";
 import { Swagger } from "./swagger.js";
 import { serializerMiddleware } from "./api/v1/middlewares/serializerMiddleware.js";
+import Scheduler from "./scheduler.js";
 dotenv.config()
 
 class App {
   public app: express.Application;
   public port: string | number;
   public env: "development" | "test" | "production";
+  private scheduler: Scheduler;
 
   constructor(routes: Routes[]) {
     const __filename = fileURLToPath(import.meta.url);
@@ -35,6 +37,8 @@ class App {
     this.initializeRoutes(routes);
     this.initializeSwagger();
     this.initializeErrorHandling();
+    this.scheduler = new Scheduler();
+    this.env !== "test" && this.scheduler.startScheduledTasks();
   }
 
   public listen() {
