@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LetBud Lease Agreement</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            line-height: 1.6;
+            color: #333;
+            padding: 40px 60px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 3px solid #2c3e50;
+            padding-bottom: 20px;
+        }
+
+        .logo {
+            font-size: 36px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .logo-subtitle {
+            font-size: 14px;
+            color: #7f8c8d;
+            letter-spacing: 2px;
+        }
+
+        .document-title {
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+            margin: 30px 0;
+            color: #2c3e50;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            border-left: 4px solid #3498db;
+            padding-left: 10px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .info-item {
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            color: #34495e;
+            font-size: 14px;
+        }
+
+        .terms {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .terms ol {
+            margin-left: 20px;
+        }
+
+        .terms li {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+
+        .signature-section {
+            margin-top: 60px;
+            page-break-inside: avoid;
+        }
+
+        .signature-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            margin-top: 40px;
+        }
+
+        .signature-line {
+            border-top: 2px solid #333;
+            padding-top: 10px;
+        }
+
+        .signature-label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 2px solid #ecf0f1;
+            text-align: center;
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+
+        .highlight-box {
+            background-color: #e8f4f8;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .amount {
+            font-size: 24px;
+            font-weight: bold;
+            color: #27ae60;
+        }
+
+        @media print {
+            body {
+                padding: 20px;
+            }
+        }
+
+        .page-break {
+            page-break-after: always;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">LetBud</div>
+        <div class="logo-subtitle">PROFESSIONAL PROPERTY MANAGEMENT</div>
+    </div>
+
+    <div class="document-title">Residential Lease Agreement</div>
+
+    <div class="section">
+        <p style="text-align: center; margin-bottom: 30px; font-size: 14px;">
+            This Lease Agreement is entered into on <strong>{{currentDate}}</strong>
+        </p>
+    </div>
+
+    <!-- Property Information -->
+    <div class="section">
+        <div class="section-title">Property Information</div>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Property Address</div>
+                <div class="info-value">{{property.address}}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">City / State</div>
+                <div class="info-value">{{property.city}}, {{property.state}}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Unit Type</div>
+                <div class="info-value">{{unit.label}}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Property Type</div>
+                <div class="info-value">{{property.type}}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Number of Bedrooms</div>
+                <div class="info-value">{{unit.noOfBedrooms}}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Number of Bathrooms</div>
+                <div class="info-value">{{unit.noOfBathrooms}}</div>
+            </div>
+            {{#if unit.squareFeet}}
+            <div class="info-item">
+                <div class="info-label">Square Feet</div>
+                <div class="info-value">{{unit.squareFeet}} sq ft</div>
+            </div>
+            {{/if}}
+            <div class="info-item">
+                <div class="info-label">Date Available</div>
+                <div class="info-value">{{unit.dateAvailable}}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Landlord Information -->
+    <div class="section">
+        <div class="section-title">Landlord Information</div>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Landlord Name</div>
+                <div class="info-value">{{lessor.firstName}} {{lessor.lastName}}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Phone Number</div>
+                <div class="info-value">{{lessor.phoneNumber}}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Email Address</div>
+                <div class="info-value">{{lessor.email}}</div>
+            </div>
+            {{#if lessor.agencyName}}
+            <div class="info-item">
+                <div class="info-label">Agency Name</div>
+                <div class="info-value">{{lessor.agencyName}}</div>
+            </div>
+            {{/if}}
+        </div>
+    </div>
+
+    <!-- Tenant Information -->
+    <div class="section">
+        <div class="section-title">Tenant Information</div>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Tenant Name</div>
+                <div class="info-value">{{tenant.firstName}} {{tenant.middleName}} {{tenant.lastName}}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Phone Number</div>
+                <div class="info-value">{{tenant.phoneNumber}}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Email Address</div>
+                <div class="info-value">{{tenant.email}}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Current Address</div>
+                <div class="info-value">{{tenant.currentAddress}}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lease Terms & Payment -->
+    <div class="section">
+        <div class="section-title">Lease Terms & Payment</div>
+        <div class="highlight-box">
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Monthly Rent</div>
+                    <div class="info-value amount">₦{{unit.price}}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Lease Term</div>
+                    <div class="info-value">{{property.leaseTerm}}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Move-In Date</div>
+                    <div class="info-value">{{tenant.moveInDate}}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Payment Schedule</div>
+                    <div class="info-value">{{unit.paymentSchedule}}</div>
+                </div>
+                {{#if unit.hasAgencyFee}}
+                <div class="info-item">
+                    <div class="info-label">Agency Fee</div>
+                    <div class="info-value">
+                        {{#if unit.fixedAgencyFee}}
+                            ₦{{unit.fixedAgencyFee}}
+                        {{else}}
+                            {{unit.agencyFeePercentage}}% of rent
+                        {{/if}}
+                    </div>
+                </div>
+                {{/if}}
+            </div>
+        </div>
+    </div>
+
+    <!-- Terms and Conditions -->
+    <div class="section">
+        <div class="section-title">Terms and Conditions</div>
+        <div class="terms">
+            <ol>
+                <li><strong>Lease Duration:</strong> This lease agreement begins on {{tenant.moveInDate}} and continues on a {{property.leaseTerm}} basis. The tenant agrees to pay rent of ₦{{unit.price}} {{property.leaseTerm}}.</li>
+                
+                <li><strong>Security Deposit:</strong> A security deposit may be required as per the landlord's policy. This deposit will be held for the duration of the lease and returned within the stipulated time after lease termination, subject to property inspection.</li>
+                
+                <li><strong>Payment Terms:</strong> Rent is due on the {{unit.paymentSchedule}} basis. Late payments may incur additional charges as specified by the landlord.</li>
+                
+                <li><strong>Property Use:</strong> The tenant agrees to use the property solely for residential purposes and to comply with all local laws and regulations.</li>
+                
+                <li><strong>Maintenance:</strong> The tenant is responsible for maintaining the property in good condition and promptly reporting any damages or required repairs to the landlord.</li>
+                
+                {{#if property.leasePolicy.allowPets}}
+                <li><strong>Pet Policy:</strong> Pets are {{property.leasePolicy.allowPets}} allowed. {{#if property.leasePolicy.petDeposit}}A pet deposit of ₦{{property.leasePolicy.petDeposit}} is required.{{/if}}</li>
+                {{else}}
+                <li><strong>Pet Policy:</strong> No pets are allowed on the premises without prior written consent from the landlord.</li>
+                {{/if}}
+                
+                {{#if property.leasePolicy.smokingAllowed}}
+                <li><strong>Smoking Policy:</strong> Smoking is allowed only in designated areas as specified by the landlord.</li>
+                {{else}}
+                <li><strong>Smoking Policy:</strong> Smoking is strictly prohibited within the property and common areas.</li>
+                {{/if}}
+                
+                <li><strong>Utilities:</strong> {{#if property.utilities}}Utilities included: {{#each property.utilities}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}.{{else}}Tenant is responsible for all utilities unless otherwise specified.{{/if}}</li>
+                
+                <li><strong>Termination:</strong> Either party may terminate this lease by providing written notice as per the terms of the lease agreement. Early termination may result in penalties as specified.</li>
+                
+                <li><strong>Access:</strong> The landlord reserves the right to access the property for inspections, repairs, or showing to prospective tenants/buyers with reasonable notice (minimum 24 hours).</li>
+                
+                <li><strong>Alterations:</strong> No alterations or improvements shall be made to the property without the prior written consent of the landlord.</li>
+                
+                <li><strong>Subletting:</strong> The tenant shall not sublet the property or assign this lease without the prior written consent of the landlord.</li>
+                
+                <li><strong>Default:</strong> Failure to comply with any terms of this agreement may result in eviction proceedings as per local laws and regulations.</li>
+                
+                <li><strong>Entire Agreement:</strong> This document constitutes the entire agreement between the parties and supersedes all prior negotiations, representations, or agreements.</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Signature Section -->
+    <div class="signature-section">
+        <div class="section-title">Signatures</div>
+        <p style="margin-bottom: 30px;">By signing below, both parties acknowledge that they have read, understood, and agree to be bound by the terms and conditions of this Lease Agreement.</p>
+        
+        <div class="signature-box">
+            <div>
+                <div class="signature-line">
+                    <div class="signature-label">Landlord Signature</div>
+                    <div style="margin-top: 10px;">Name: {{lessor.firstName}} {{lessor.lastName}}</div>
+                    <div>Date: _____________________</div>
+                </div>
+            </div>
+            <div>
+                <div class="signature-line">
+                    <div class="signature-label">Tenant Signature</div>
+                    <div style="margin-top: 10px;">Name: {{tenant.firstName}} {{tenant.lastName}}</div>
+                    <div>Date: _____________________</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>This lease agreement is generated through LetBud Property Management Platform</p>
+        <p>For questions or support, please contact LetBud at support@letbud.com</p>
+        <p style="margin-top: 10px;">Document Generated: {{currentDate}}</p>
+    </div>
+</body>
+</html>

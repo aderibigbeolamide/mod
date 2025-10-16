@@ -121,23 +121,10 @@ export class RequestToRentEntity extends BaseEntity implements IRequestToRent {
 
   @ManyToOne(() => PropertyEntity, (item) => item.rentRequests) property?: PropertyEntity;
 
+  @ManyToOne(() => PropertyUnitEntity, (item) => item.rentRequests) unit?: PropertyUnitEntity;
 
-  @ManyToOne(() => PropertyUnitEntity, (item) => item.rentRequests) unit?: PropertyEntity[];
+  @ManyToOne(() => UserEntity, (user) => user.rentRequests) user?: UserEntity;
 
-  //   @ManyToOne(() => PropertyEntity, (item) => item.rentRequests)
-  // @JoinColumn({ name: "property_id" }) // Ensures the foreign key is properly mapped
-  // property?: PropertyEntity;
-
-  // @ManyToOne(() => PropertyUnitEntity, (item) => item.rentRequests)
-  // @JoinColumn({ name: "unit_id" }) // Ensures the foreign key is properly mapped
-  // unit?: PropertyUnitEntity;
-
-  // @ManyToOne(() => UserDetailsEntity, (userDetails) => userDetails.rentRequests)
-  // @JoinColumn({ name: "user_id" }) // Ensures the foreign key is properly mapped
-  // userDetails?: UserDetailsEntity;
-
-  @ManyToOne(() => UserEntity, (user) => user.rentRequests) user?: UserEntity[];
-
-  @ManyToOne(() => UserDetailsEntity, (userDetails) => userDetails.rentRequests) userDetails?: UserDetailsEntity[];
+  @ManyToOne(() => UserDetailsEntity, (userDetails) => userDetails.rentRequests) userDetails?: UserDetailsEntity;
 
 }
