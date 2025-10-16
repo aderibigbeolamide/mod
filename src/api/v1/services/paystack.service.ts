@@ -45,6 +45,32 @@ export class PaystackApi extends PaystackBaseApi {
     );
   };
 
+  // Method to cancel a payment (if supported by Paystack)
+  cancelPayment = async (paymentId: string) => {
+    try {
+      const response: AxiosResponse<PaystackAPIResponse<null>> = await axios.post(
+        `${this.baseUrl}/transaction/cancel/${paymentId}`,
+        {},
+        this.requestInit
+      );
+
+      if (response.data.status) {
+        return { message: 'Payment cancelled successfully' };
+      } else {
+        throw new Error('Failed to cancel payment');
+      }
+    } catch (error) {
+      console.error('Error cancelling payment:', error.response?.data || error.message || error);
+    }
+  }
+
+//   @Post("/cancel")
+// async cancelPayment(@Body() body: { unitId: string; payerId: string }) {
+//   await this.paymentService.cancelPayment(body.unitId, body.payerId);
+//   return { status: "success", message: "Payment cancelled, unit unlocked." };
+// }
+
+
   // Method to fetch bank details
   // fetchBanks = async (currency = 'NG'): Promise<BankDetails[]> => {
   //   try {

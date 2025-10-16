@@ -28,7 +28,7 @@ class App {
     process.env["NODE_CONFIG_DIR"] = __dirname + "/configs";
 
     this.app = express();
-    this.port = process.env.BACKEND_PORT || 3000;
+    this.port = process.env.PORT || 3000;
     this.env = (process.env.NODE_ENV as typeof this.env) || "development";
 
     this.env !== "test" && this.connectToDatabase();
@@ -42,11 +42,10 @@ class App {
   }
 
   public listen() {
-    const port = Number(this.port);
-    this.app.listen(port, 'localhost', () => {
+    this.app.listen(Number(this.port), "0.0.0.0", () => {
       logger.info(`=================================`);
       logger.info(`======= ENV: ${this.env} =======`);
-      logger.info(`🚀 App listening on localhost:${port}`);
+      logger.info(`🚀 App listening on the port ${this.port}`);
       logger.info(`=================================`);
     });
   }
@@ -67,9 +66,53 @@ class App {
   }
 
   private initializeMiddlewares() {
-    // For Replit environment, allow all origins during development
+    const localhostWhitelist: { [x: string]: 1 } = {
+      [`${process.env.API_HOST}:${process.env.API_PORT}`]: 1,
+      [`${process.env.API_HOST}`]: 1,
+      [`http://127.0.0.1:5173`]: 1,
+      [`http://127.0.0.1:3001`]: 1,
+      [`http://localhost:5173`]: 1,
+      [`https://dev.letbud.com`]: 1,
+      [`https://www.dev.letbud.com`]: 1,
+      [`https://www.letbud.com`]: 1,
+      [`https://beta.letbud.com`]: 1,
+      [`https://www.beta.letbud.com`]: 1,
+      [`${process.env.WEB_APP_URL}`]: 1,
+    };
+
+    const prodWhitelist: { [x: string]: 1 } = {
+      [`${process.env.HOST}:${process.env.API_PORT}`]: 1,
+      [`${process.env.API_HOST}`]: 1,
+      [`http://127.0.0.1:5173`]: 1,
+      [`http://127.0.0.1:3001`]: 1,
+      [`http://localhost:5173`]: 1,
+      [`https://dev.letbud.com`]: 1,
+      [`https://www.dev.letbud.com`]: 1,
+      [`https://www.letbud.com`]: 1,
+      [`https://beta.letbud.com`]: 1,
+      [`https://www.beta.letbud.com`]: 1,
+      [`${process.env.WEB_APP_URL}`]: 1,
+    };
+    const whiteList = {
+      ...(this.env == "production" ? prodWhitelist : localhostWhitelist),
+    };
     const corsOptions: cors.CorsOptions = {
-      origin: true, // Allow all origins for development in Replit
+      origin: (origin, callback) => {
+        // console.log(origin, whiteList[origin]);
+        // logger.info(
+        //   JSON.stringify({
+        //     env: this.env,
+        //     origin,
+        //     whiteList,
+        //     status: whiteList[origin],
+        //   })
+        // );
+        if (!origin || whiteList[origin]) {
+          callback(null, true);
+        } else {
+          callback(new Error("Not allowed by CORS"));
+        }
+      },
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization", "Apikey"],
       credentials: true,

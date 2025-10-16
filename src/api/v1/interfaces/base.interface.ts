@@ -1,8 +1,8 @@
 export interface BaseInterface {
   id?: string;
   meta?: {};
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
   createdBy?: string;
 }
 

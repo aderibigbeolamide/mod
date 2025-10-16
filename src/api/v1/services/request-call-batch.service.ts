@@ -5,20 +5,16 @@ import { logger } from "../../../config/logger.js";
 import { v4 as uuidv4 } from 'uuid';
 
 export default class RequestCallBatchService {
-  private requestCallService: RequestCallService;
-  private commService: CommService;
-
-  constructor() {
-    this.requestCallService = new RequestCallService();
-    this.commService = new CommService();
-  }
+  requestCallService = new RequestCallService();
+  commService = new CommService();
 
   public async processBatchCallRequests(): Promise<void> {
     try {
       logger.info("Starting batch processing of request call notifications");
 
       // Get all unprocessed requests
-      const unprocessedRequests = await this.requestCallService.getUnprocessedRequests();
+      const unprocessedRequests = await this.requestCallService.getUnprocessedRequestsForHour();
+
 
       if (unprocessedRequests.length === 0) {
         logger.info("No unprocessed request calls found");
@@ -50,10 +46,10 @@ export default class RequestCallBatchService {
   private async sendBatchEmailToAdmin(batchSummary: RequestCallBatchSummary): Promise<void> {
     try {
       const emailTemplate = this.buildBatchEmailTemplate(batchSummary);
-      
+
       const nodemailer = (await import('nodemailer')).default;
       const transporter = nodemailer.createTransport(this.commService.conf);
-      
+
       const mailOptions = {
         from: process.env.MAILER_USER,
         to: "admin@letbud.com",
@@ -71,21 +67,27 @@ export default class RequestCallBatchService {
   }
 
   private buildBatchEmailTemplate(batchSummary: RequestCallBatchSummary): string {
-    const requestsHtml = batchSummary.requests.map((request, index) => `
+    const requestsHtml = batchSummary.requests.map((request, index) => {
+      const firstName = request.user?.userDetails?.firstName || '';
+      const lastName = request.user?.userDetails?.lastName || '';
+      const fullName = `${firstName} ${lastName}`.trim() || 'N/A';
+
+      return `
       <tr style="border-bottom: 1px solid #e0e0e0;">
         <td style="padding: 12px; text-align: center;">${index + 1}</td>
+        <td style="padding: 12px;">${fullName}</td>
         <td style="padding: 12px;">${request.email}</td>
         <td style="padding: 12px;">${request.phoneNumber}</td>
         <td style="padding: 12px;">${request.preferredCallTime || 'No preference'}</td>
         <td style="padding: 12px;">${new Date(request.createdAt).toLocaleString()}</td>
         <td style="padding: 12px;">
-          ${request.isEmailOverridden || request.isPhoneOverridden ? 
-            `<span style="color: #f39c12;">Modified</span>${request.overrideReason ? ` - ${request.overrideReason}` : ''}` : 
-            '<span style="color: #27ae60;">User Data</span>'
-          }
+          ${request.isEmailOverridden || request.isPhoneOverridden ?
+          `<span style="color: #f39c12;">Modified</span>${request.overrideReason ? ` - ${request.overrideReason}` : ''}` :
+          '<span style="color: #27ae60;">User Data</span>'
+        }
         </td>
       </tr>
-    `).join('');
+    `}).join('');
 
     return `
       <!DOCTYPE html>
@@ -129,6 +131,7 @@ export default class RequestCallBatchService {
                   <thead>
                     <tr style="background-color: #1b3562; color: white;">
                       <th style="padding: 15px; text-align: center;">#</th>
+                      <th style="padding: 15px;">Name</th>
                       <th style="padding: 15px;">Email</th>
                       <th style="padding: 15px;">Phone Number</th>
                       <th style="padding: 15px;">Preferred Time</th>

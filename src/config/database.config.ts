@@ -10,17 +10,21 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+// dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+
 
 console.log("Environment is ", process.env.NODE_ENV);
 export const connectionOptions: PostgresConnectionOptions = {
   name: "default",
   type: "postgres",
-  host: process.env.PGHOST || process.env.HOST || "helium",
-  port: Number(process.env.PGPORT || process.env.DB_PORT || 5432),
-  username: process.env.PGUSER || process.env.USER || "postgres",
-  password: process.env.PGPASSWORD || process.env.PASSWORD || "password",
-  database: process.env.PGDATABASE || process.env.DATABASE || "heliumdb",
+  host: process.env.HOST,
+  port: Number(process.env.DB_PORT),
+  // username: 'letbud_letbud',
+  // username: 'admin',
+  username: process.env.USER,
+  password: process.env.PASSWORD,
+  database: process.env.DATABASE,
   // synchronize:false, 
   synchronize: process.env.DB_SYNCRHONIZE == "false" ? false : process.env.NODE_ENV == "local",
   logging: true,

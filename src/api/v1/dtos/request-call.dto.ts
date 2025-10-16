@@ -15,6 +15,10 @@ export class CreateRequestCallDto implements RequestCallCreateDto {
   preferredCallTime?: string;
 
   @IsOptional()
+  @IsString({ message: "Preferred call day must be a string" })
+  preferredCallDay?: string;
+
+  @IsOptional()
   @IsBoolean({ message: "useUserData must be a boolean" })
   useUserData?: boolean;
 

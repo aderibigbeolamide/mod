@@ -26,6 +26,9 @@ export class RequestCallEntity extends BaseEntity implements RequestCall {
   @Column({ name: "preferred_call_time", nullable: true })
   preferredCallTime: string;
 
+  @Column({ name: "preferred_call_day", nullable: true })
+  preferredCallDay: string;
+
   @Column({ name: "is_email_overridden", type: "boolean", default: false })
   isEmailOverridden: boolean;
 

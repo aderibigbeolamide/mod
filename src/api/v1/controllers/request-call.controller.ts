@@ -7,9 +7,9 @@ import { STATUS_FAIL, STATUS_SUCCESS } from "../../../config/constants.js";
 import Utility from "../../../utils/utility.js";
 import { logger } from "../../../config/logger.js";
 
-class RequestCallController {
+const RequestCallController = {
   // Create a new request call
-  createRequestCall = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  createRequestCall: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.sender?.id;
       if (!userId) {
@@ -44,10 +44,10 @@ class RequestCallController {
       logger.error(error);
       next(error);
     }
-  };
+  },
 
   // Get user's request calls
-  getUserRequestCalls = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  getUserRequestCalls: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.sender?.id;
       if (!userId) {
@@ -66,10 +66,10 @@ class RequestCallController {
       logger.error(error);
       next(error);
     }
-  };
+  },
 
   // Get user data for confirmation (returns user's email and phone)
-  getUserDataForConfirmation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  getUserDataForConfirmation: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.sender?.id;
       if (!userId) {
@@ -93,7 +93,7 @@ class RequestCallController {
       logger.error(error);
       next(error);
     }
-  };
+  },
 }
 
 export default RequestCallController;

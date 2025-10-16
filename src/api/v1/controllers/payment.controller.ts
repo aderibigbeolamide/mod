@@ -163,6 +163,57 @@ const PaymentController = {
     }
   },
 
+  // Get account by user id
+  async getAccountByUserId(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user?.id || req.sender?.id;
+
+      const result = await new AccountService().getAccountByUserId(userId);
+
+      if (!result) {
+        res.status(404).json({
+          status: "error",
+          message: "Account not found",
+        });
+        return;
+      }
+
+      res.status(200).json({
+        status: "success",
+        message: "Account details fetched successfully",
+        data: result,
+      });
+    } catch (error) {
+      logger.error("An error occurred in getting account by user id", error);
+      next(error);
+    }
+  },
+
+  // Cancel payment
+  async cancelPayment(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { unitId, payerId } = req.body;
+
+      if (!unitId || !payerId) {
+        res.status(400).json({
+          status: "error",
+          message: "Unit ID and Payer ID are required",
+        });
+        return;
+      }
+
+      const result = await new paymentService().cancelPayment(unitId, payerId);
+      res.status(200).json({
+        status: "success",
+        message: "Payment cancelled, unit unlocked.",
+        data: result
+      });
+    } catch (error) {
+      logger.error("An error occurred in cancelling payment", error);
+      next(error);
+    }
+  },
+
   // Refund payment
   async refundPayment(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -191,13 +242,13 @@ const PaymentController = {
       }
 
       const paymentServiceInstance = new paymentService();
-      
+
       // Cleanup expired locks first
       await paymentServiceInstance.cleanupExpiredLocks();
-      
+
       // Check actual unit availability
       const availability = await paymentServiceInstance.checkUnitAvailability(unitId);
-      
+
       res.status(200).json({
         status: "success",
         message: "Unit availability checked successfully",
@@ -205,8 +256,8 @@ const PaymentController = {
           unitId: unitId,
           available: availability.available,
           message: availability.message,
-          recommendation: availability.available ? 
-            "Unit is available. You can proceed with payment." : 
+          recommendation: availability.available ?
+            "Unit is available. You can proceed with payment." :
             "Unit is not available. Please try again later or choose a different unit."
         }
       });
@@ -231,6 +282,7 @@ const PaymentController = {
       next(error);
     }
   }
+
 }
 
 export default PaymentController;

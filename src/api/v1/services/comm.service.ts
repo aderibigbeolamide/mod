@@ -522,6 +522,43 @@ export default class CommService {
     }
   }
 
+  public async sendUnitAvailableEmail(
+    email: string,
+    unitId: string
+  ): Promise<void> {
+    const transporter = nodemailer.createTransport(this.conf);
+    const Email = `${email}`.trim();
+
+    const html = `
+    <div style="font-family: Arial, sans-serif; color: #333;">
+      <p>Hi ${Email},</p>
+      <p>Good news 🎉 The unit you were interested in (<b>${unitId}</b>) is now available again!</p>
+      <p>Act fast and try booking before someone else locks it.</p>
+      <p><a href="${process.env.WEB_APP_URL}/units/${unitId}" 
+        style="background:#4b7bcd; color:#fff; padding:10px 20px; text-decoration:none; border-radius:5px;">
+        Book Now
+      </a></p>
+      <p>Best Regards,<br/><b>Team Letbud</b></p>
+    </div>
+  `;
+
+    const mailOptions = {
+      from: process.env.MAILER_USER,
+      to: email,
+      subject: `🏠 Unit ${unitId} is Now Available Again`,
+      html,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      logger.info(`Unit availability email sent to ${email}`);
+    } catch (err: any) {
+      logger.error(`Error sending unit availability email: ${err.message}`);
+      throw err;
+    }
+  }
+
+
   public async sendRequestToLandlordEmail(
     landlordEmail: string,
     landlordName: string,

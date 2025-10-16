@@ -210,8 +210,24 @@ export class AccountService {
         }
     }
 
+    //get account by user id
+    public async getAccountByUserId(userId: string): Promise<AccountDetailsEntity | null> {
+        try {
+            const account = await this.accountRepo.findOne({
+                where: { payee: { id: userId } },
+                relations: ["payee"],
+            });
 
+            if (!account) {
+                return null;
+            }
 
+            return account;
+        } catch (error) {
+            console.error("Error in getAccountByUserId:", error.message || error);
+            throw error;
+        }
+    }
 
 
 }

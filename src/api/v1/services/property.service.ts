@@ -762,7 +762,7 @@ export default class PropertyService {
 
     // Check if user has made a payment
     const hasPaid = await this.paymentRepo.findOne({
-      where: { payer: { id: userId }, unit: { id: unitId } },
+      where: { payer: { id: userId }, unit: { id: unitId }, status: PaymentStatuses.CONFIRMED }, 
     });
 
     // Check if user application is approved

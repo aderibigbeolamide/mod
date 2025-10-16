@@ -2,7 +2,10 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
+  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
@@ -10,6 +13,7 @@ import { UserDetails } from "../interfaces/user-details.interface.js";
 import { UserInfo } from "../interfaces/user-info.interface.js";
 import { RequestToRentEntity } from "./request-to-rent.entity.js";
 import { TourRequestEntity } from "./tour-request.entity.js";
+import { UserEntity } from "./user.entity.js";
 
 @Entity({ name: "user_details" })
 export class UserDetailsEntity implements UserDetails {
@@ -54,5 +58,10 @@ export class UserDetailsEntity implements UserDetails {
 
   @OneToMany(() => TourRequestEntity, (tourRequests) => tourRequests.userDetails)
   tourRequests: TourRequestEntity[];
-  
+
+  // @ManyToOne(() => UserEntity, { nullable: false })
+  // @JoinColumn({ name: "user_id" })
+  // user: UserEntity;
+
+
 }

@@ -16,11 +16,11 @@ export class BaseEntity implements BaseInterface {
 
   @Column({ type: "timestamp with time zone" })
   @CreateDateColumn()
-  createdAt: string;
+  createdAt: Date;
 
   @Column({ type: "timestamp with time zone" })
   @UpdateDateColumn()
-  updatedAt: string;
+  updatedAt: Date;
 
   @Column({ nullable: true, type: "uuid" })
   createdBy: string;

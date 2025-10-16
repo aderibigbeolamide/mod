@@ -1,7 +1,7 @@
 import Utility from "../../../utils/utility.js";
 import paymentController from "../controllers/payment.controller.js";
 import { PaymentDto } from "../dtos/payment.dto.js";
-import { authenticateUser } from "../middlewares/auth.middleware.js";
+import { authenticateRenter, authenticateUser } from "../middlewares/auth.middleware.js";
 import { PaymentSample } from "../samples/payment.sample.js";
 
 const PaymentRoute = Utility.swaggerRouteToAppRoute({
@@ -38,7 +38,13 @@ const PaymentRoute = Utility.swaggerRouteToAppRoute({
       sampleResponseData: Utility.responseFormatter(PaymentSample.createAccountDetails, "Account Saved"),
     },
 
-    
+    {
+      route: `/getAccountByUserId`,
+      handlerName: "getAccountByUserId",
+      method: "get",
+      middleWares: [authenticateUser],
+      description: `Use this to get account details by user ID.`,
+    },
 
     {
       route: `/fetchAccountDetails`,
@@ -64,10 +70,19 @@ const PaymentRoute = Utility.swaggerRouteToAppRoute({
     //   method: "post",
     // },
     {
-        route: `/`,
-        handlerName: "refundPayment",
-        method: "post",
-      },
+      route: `/`,
+      handlerName: "refundPayment",
+      method: "post",
+    },
+
+    {
+      route: `/cancelPayment`,
+      handlerName: "cancelPayment",
+      method: "post",
+      middleWares: [authenticateUser],
+      description: `Use this to cancel a payment.`,
+    },
+
     {
       route: `/checkUnitAvailability/:unitId`,
       handlerName: "checkUnitAvailability",

@@ -28,6 +28,8 @@ import PaymentRoute from "./api/v1/routes/payment.route.js";
 import PaymentTransactionRoute from "./api/v1/routes/paymentTransaction.route.js";
 import VerifyRoute from "./api/v1/routes/verify.route.js";
 import RequestCallRoute from "./api/v1/routes/request-call.route.js";
+import ListedElseWhereRoute from "./api/v1/routes/listedElseWhere.route.js";
+
 
 // dotenv.config()
 const app = new App([
@@ -50,5 +52,6 @@ const app = new App([
   PaymentTransactionRoute(),
   VerifyRoute(),
   RequestCallRoute(),
+  ListedElseWhereRoute(),
 ]);
 app.listen();
