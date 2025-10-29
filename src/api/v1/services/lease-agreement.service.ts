@@ -9,6 +9,8 @@ import { RequestToRentEntity } from '../entities/request-to-rent.entity.js';
 import { PropertyEntity, PropertyUnitEntity } from '../entities/property.entity.js';
 import { LessorInfoEntity } from '../entities/lessor-info.entity.js';
 import { UserEntity } from '../entities/user.entity.js';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { logger } from '../../../config/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -196,26 +198,60 @@ export class LeaseAgreementService {
     requestToRentId: string,
     pdfBuffer: Buffer
   ): Promise<string> {
-    // This method can be implemented later to upload to S3
-    // For now, we'll just return a placeholder URL
-    const filename = `lease-agreement-${requestToRentId}-${Date.now()}.pdf`;
-    
-    // TODO: Implement S3 upload using existing media service
-    // const s3Url = await mediaService.uploadToS3(pdfBuffer, filename);
-    
-    return filename;
+    try {
+      const filename = `lease-agreement-${requestToRentId}-${Date.now()}.pdf`;
+      const uploadKey = `${process.env.NODE_ENV}/lease-agreements/${filename}`;
+
+      const s3 = new S3Client({
+        region: process.env.AWS_REGION,
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        },
+      });
+
+      const bucketName = process.env.S3_PUBLIC_BUCKET;
+
+      const params = {
+        Bucket: bucketName,
+        Key: uploadKey,
+        Body: pdfBuffer,
+        ContentType: 'application/pdf',
+        ContentDisposition: 'inline',
+      };
+
+      const command = new PutObjectCommand(params);
+      await s3.send(command);
+
+      const s3Url = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${uploadKey}`;
+      
+      logger.info(`Lease agreement uploaded successfully to S3: ${s3Url}`);
+
+      return s3Url;
+    } catch (error) {
+      logger.error('Error uploading lease agreement to S3:', error);
+      throw new Error('Failed to upload lease agreement to S3');
+    }
   }
 
   async generateAndSaveLeaseAgreement(requestToRentId: string): Promise<{
     pdfBuffer: Buffer;
-    filename: string;
+    s3Url: string;
   }> {
     const pdfBuffer = await this.generateLeaseAgreement(requestToRentId);
-    const filename = await this.saveLeaseAgreementToS3(requestToRentId, pdfBuffer);
+    const s3Url = await this.saveLeaseAgreementToS3(requestToRentId, pdfBuffer);
+
+    // Update the request to rent entity with the lease agreement URL
+    await dataSource.getRepository(RequestToRentEntity).update(
+      { id: requestToRentId },
+      { leaseAgreementUrl: s3Url }
+    );
+
+    logger.info(`Lease agreement URL saved to database for request: ${requestToRentId}`);
 
     return {
       pdfBuffer,
-      filename,
+      s3Url,
     };
   }
 }
