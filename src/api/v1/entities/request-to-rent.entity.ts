@@ -1,9 +1,6 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { BaseEntity } from "./base.entity.js";
 import { IRequestToRent, ITenantInfo } from "../interfaces/request-to-rent.interface.js";
-import { PropertyEntity, PropertyUnitEntity } from './property.entity.js';
-import { UserDetailsEntity } from "./user-details.entity.js";
-import { UserEntity } from "./user.entity.js";
 
 
 @Entity({ name: "request_to_rent" })
@@ -119,12 +116,12 @@ export class RequestToRentEntity extends BaseEntity implements IRequestToRent {
   @Column({ type: "uuid", nullable: true })
   unitId: string;
 
-  @ManyToOne(() => PropertyEntity, (item) => item.rentRequests) property?: PropertyEntity;
+  @ManyToOne("PropertyEntity", (item: any) => item.rentRequests) property?: any;
 
-  @ManyToOne(() => PropertyUnitEntity, (item) => item.rentRequests) unit?: PropertyUnitEntity;
+  @ManyToOne("PropertyUnitEntity", (item: any) => item.rentRequests) unit?: any;
 
-  @ManyToOne(() => UserEntity, (user) => user.rentRequests) user?: UserEntity;
+  @ManyToOne("UserEntity", (user: any) => user.rentRequests) user?: any;
 
-  @ManyToOne(() => UserDetailsEntity, (userDetails) => userDetails.rentRequests) userDetails?: UserDetailsEntity;
+  @ManyToOne("UserDetailsEntity", (userDetails: any) => userDetails.rentRequests) userDetails?: any;
 
 }

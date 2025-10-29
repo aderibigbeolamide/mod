@@ -12,9 +12,6 @@ import { Exclude } from "class-transformer";
 import { forwardRef } from "@nestjs/common";
 import { User } from "../interfaces/user.interface.js";
 import { UserRoles } from "../enums/user.roles.enum.js";
-import { RequestToRentEntity } from "./request-to-rent.entity.js";
-import { UserDetailsEntity } from "./user-details.entity.js";
-import { ListedElseWhereEntity } from "./listedElseWhere.entity.js";
 
 @Entity({ name: "user" })
 export class UserEntity implements User {
@@ -54,12 +51,12 @@ export class UserEntity implements User {
   @UpdateDateColumn({ type: "timestamp with time zone" })
   updatedAt: Date;
 
-  @OneToMany(() => RequestToRentEntity, (rentRequests) => rentRequests.userDetails)
-  rentRequests: RequestToRentEntity[];
+  @OneToMany("RequestToRentEntity", (rentRequests: any) => rentRequests.userDetails)
+  rentRequests: any[];
 
-  @OneToOne(() => UserDetailsEntity,  { eager: true })
+  @OneToOne("UserDetailsEntity",  { eager: true })
   @JoinColumn()
-  userDetails: UserDetailsEntity;
+  userDetails: any;
 
 
   // @OneToMany(() => ListedElseWhereEntity, (listing) => listing.user)
