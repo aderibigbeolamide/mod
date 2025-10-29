@@ -29,7 +29,7 @@ import PaymentTransactionRoute from "./api/v1/routes/paymentTransaction.route.js
 import VerifyRoute from "./api/v1/routes/verify.route.js";
 import RequestCallRoute from "./api/v1/routes/request-call.route.js";
 import ListedElseWhereRoute from "./api/v1/routes/listedElseWhere.route.js";
-// import LeaseAgreementRoute from "./api/v1/routes/lease-agreement.route.js";
+import LeaseAgreementRoute from "./api/v1/routes/lease-agreement.route.js";
 
 
 // dotenv.config()
@@ -54,6 +54,6 @@ const app = new App([
   VerifyRoute(),
   RequestCallRoute(),
   ListedElseWhereRoute(),
-  // LeaseAgreementRoute(),
+  LeaseAgreementRoute(),
 ]);
 app.listen();

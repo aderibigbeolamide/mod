@@ -24,10 +24,13 @@ const LeaseAgreementController = {
         requestToRentId
       );
 
+      // Extract filename from S3 URL for Content-Disposition header
+      const filename = result.s3Url.split('/').pop() || 'lease-agreement.pdf';
+
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="${result.filename}"`
+        `attachment; filename="${filename}"`
       );
       
       res.send(result.pdfBuffer);
