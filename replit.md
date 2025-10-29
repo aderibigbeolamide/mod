@@ -12,6 +12,20 @@ Letbud is a backend API service built with Node.js, Express, and TypeORM. It pro
 
 ## Recent Changes (October 29, 2025)
 
+### Implemented S3 Integration for Lease Agreements
+1. **Added Database Field**: Added `leaseAgreementUrl` field to `RequestToRentEntity` to store the S3 URL of generated lease agreements
+2. **Implemented S3 Upload**: Completed the `saveLeaseAgreementToS3` method in `lease-agreement.service.ts` to upload generated PDFs directly to AWS S3
+3. **Updated Service Logic**: Modified `generateAndSaveLeaseAgreement` to save the S3 URL to the database after successful upload
+4. **Enabled Lease Agreement Routes**: Uncommented and enabled the LeaseAgreementRoute in `server.ts`
+5. **Updated Controller**: Fixed the controller to handle the new return type with `s3Url` instead of `filename`
+
+**How it works:**
+- When a property owner chooses to use the Letbud lease agreement (when `useLetBudTemplate = true` in PropertyMediaEntity)
+- The system generates a PDF from the Handlebars template using property, unit, lessor, and tenant data
+- The PDF is automatically uploaded to the S3 bucket at `{environment}/lease-agreements/lease-agreement-{requestId}-{timestamp}.pdf`
+- The S3 URL is saved to the `leaseAgreementUrl` field in the request-to-rent record
+- The PDF can be downloaded via `/api/v1/lease-agreement/generate/:requestToRentId` or previewed via `/api/v1/lease-agreement/preview/:requestToRentId`
+
 ### Fixed Server Startup Issues
 1. **Installed Missing Dependencies**: Ran `npm install` to install all required packages including `nodemon` and other devDependencies
 2. **Provisioned Database**: Created PostgreSQL database and configured environment variables (DATABASE_URL, PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE)
