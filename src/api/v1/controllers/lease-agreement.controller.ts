@@ -68,93 +68,95 @@ const LeaseAgreementController = {
     }
   },
 
- signLeaseAgreement: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { requestToRentId } = req.params;
+  // DEPRECATED: Signing now handled via PropertyService.signLeaseAgreement
+  // Use POST /api/v1/property/signLeaseAgreement with { unitId } instead
+  // signLeaseAgreement: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  //   try {
+  //     const { requestToRentId } = req.params;
 
-      if (!requestToRentId) {
-        Utility.sendResponse(res, {
-          message: 'Request to rent ID is required',
-          code: 400,
-        });
-        return;
-      }
+  //     if (!requestToRentId) {
+  //       Utility.sendResponse(res, {
+  //         message: 'Request to rent ID is required',
+  //         code: 400,
+  //       });
+  //       return;
+  //     }
 
-      const clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() 
-        || req.headers['x-real-ip']?.toString() 
-        || req.socket.remoteAddress 
-        || 'Unknown';
+  //     const clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() 
+  //       || req.headers['x-real-ip']?.toString() 
+  //       || req.socket.remoteAddress 
+  //       || 'Unknown';
 
-      logger.info(`Tenant signing lease agreement for request: ${requestToRentId} from IP: ${clientIp}`);
+  //     logger.info(`Tenant signing lease agreement for request: ${requestToRentId} from IP: ${clientIp}`);
 
-      const repo = (await import('../../../config/database.config.js')).dataSource.getRepository(
-        (await import('../entities/request-to-rent.entity.js')).RequestToRentEntity
-      );
+  //     const repo = (await import('../../../config/database.config.js')).dataSource.getRepository(
+  //       (await import('../entities/request-to-rent.entity.js')).RequestToRentEntity
+  //     );
 
-      const requestToRent = await repo.findOne({
-        where: { id: requestToRentId },
-      });
+  //     const requestToRent = await repo.findOne({
+  //       where: { id: requestToRentId },
+  //     });
 
-      if (!requestToRent) {
-        Utility.sendResponse(res, {
-          message: 'Request to rent not found',
-          code: 404,
-        });
-        return;
-      }
+  //     if (!requestToRent) {
+  //       Utility.sendResponse(res, {
+  //         message: 'Request to rent not found',
+  //         code: 404,
+  //       });
+  //       return;
+  //     }
 
-      if (requestToRent.userId !== req.sender.id) {
-        Utility.sendResponse(res, {
-          message: 'You do not have permission to sign this lease agreement',
-          code: 403,
-        });
-        return;
-      }
+  //     if (requestToRent.userId !== req.sender.id) {
+  //       Utility.sendResponse(res, {
+  //         message: 'You do not have permission to sign this lease agreement',
+  //         code: 403,
+  //       });
+  //       return;
+  //     }
 
-      if (!requestToRent.isApprove) {
-        Utility.sendResponse(res, {
-          message: 'Cannot sign lease agreement. Application has not been approved by landlord yet.',
-          code: 403,
-        });
-        return;
-      }
+  //     if (!requestToRent.isApprove) {
+  //       Utility.sendResponse(res, {
+  //         message: 'Cannot sign lease agreement. Application has not been approved by landlord yet.',
+  //         code: 403,
+  //       });
+  //       return;
+  //     }
 
-      if (requestToRent.leaseAgreementSigned) {
-        Utility.sendResponse(res, {
-          message: 'Lease agreement has already been signed',
-          code: 400,
-        });
-        return;
-      }
+  //     if (requestToRent.leaseAgreementSigned) {
+  //       Utility.sendResponse(res, {
+  //         message: 'Lease agreement has already been signed',
+  //         code: 400,
+  //       });
+  //       return;
+  //     }
 
-      const result = await leaseAgreementService.generateFinalSignedLeaseAgreement(
-        requestToRentId
-      );
+  //     const result = await leaseAgreementService.generateFinalSignedLeaseAgreement(
+  //       requestToRentId
+  //     );
 
-      const signedAt = new Date();
-      await repo.update(
-        { id: requestToRentId },
-        {
-          leaseAgreementSigned: true,
-          leaseAgreementSignedAt: signedAt,
-          tenantSignedByIp: clientIp,
-        } as any
-      );
+  //     const signedAt = new Date();
+  //     await repo.update(
+  //       { id: requestToRentId },
+  //       {
+  //         leaseAgreementSigned: true,
+  //         leaseAgreementSignedAt: signedAt,
+  //         tenantSignedByIp: clientIp,
+  //       } as any
+  //     );
 
-      Utility.sendResponse(res, {
-        message: 'Lease agreement signed successfully',
-        code: 200,
-        data: {
-          leaseAgreementUrl: result.s3Url,
-          signedAt: signedAt.toISOString(),
-          signedFromIp: clientIp,
-        },
-      });
-    } catch (error: any) {
-      logger.error('Error signing lease agreement:', error);
-      next(error);
-    }
-  },
+  //     Utility.sendResponse(res, {
+  //       message: 'Lease agreement signed successfully',
+  //       code: 200,
+  //       data: {
+  //         leaseAgreementUrl: result.s3Url,
+  //         signedAt: signedAt.toISOString(),
+  //         signedFromIp: clientIp,
+  //       },
+  //     });
+  //   } catch (error: any) {
+  //     logger.error('Error signing lease agreement:', error);
+  //     next(error);
+  //   }
+  // },
 };
 
 export default LeaseAgreementController;

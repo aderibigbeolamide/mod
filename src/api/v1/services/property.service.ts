@@ -45,6 +45,7 @@ import CommService from "./comm.service.js";
 import { logger } from "../../../config/logger.js";
 import { BillingAnalytics } from "../interfaces/billingAnalytics.interface.js";
 import MediaService from "./media.service.js";
+import { LeaseAgreementService } from "./lease-agreement.service.js";
 
 import type { Request } from "express";
 import { LeaseTerms } from "../enums/lease.terms.enum.js";
@@ -63,6 +64,7 @@ export default class PropertyService {
   static paystackApi = new PaystackApi();
   unitRepo: any;
   static commService = new CommService();
+  static leaseAgreementService = new LeaseAgreementService();
 
   public static getRates(price: number, hasAgencyFee: boolean): [number, number] {
     const rateMap = [
@@ -861,8 +863,7 @@ export default class PropertyService {
     };
   }
 
-  // sign lease agreement
-  public static async signLeaseAgreement(userId: string, unitId: string) {
+  public static async signLeaseAgreement(userId: string, unitId: string, clientIp?: string) {
     const request = await this.requestToRentRepo.findOne({
       where: {
         user: { id: userId },
@@ -885,14 +886,34 @@ export default class PropertyService {
       });
     }
 
+    const signedAt = new Date();
+    
     request.leaseAgreementSigned = true;
-    request.leaseAgreementSignedAt = new Date();
+    request.leaseAgreementSignedAt = signedAt;
+    if (clientIp) {
+      request.tenantSignedByIp = clientIp;
+    }
+
+    try {
+      const leaseResult = await this.leaseAgreementService.generateFinalSignedLeaseAgreement(
+        request.id
+      );
+
+      request.leaseAgreementUrl = leaseResult.s3Url;
+
+      logger.info(`Lease agreement signed and regenerated with tenant signature for request: ${request.id}`);
+    } catch (error) {
+      logger.error(`Failed to regenerate lease agreement with tenant signature for request ${request.id}:`, error);
+      throw error;
+    }
+
     await this.requestToRentRepo.save(request);
 
     return {
       message: "Lease agreement signed successfully.",
       leaseSigned: true,
       signedAt: request.leaseAgreementSignedAt,
+      leaseAgreementUrl: request.leaseAgreementUrl,
     };
   }
 

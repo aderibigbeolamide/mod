@@ -18,6 +18,7 @@ import CommService from "./comm.service.js";
 import { property } from "lodash-es";
 import { userInfo } from "os";
 import { LeaseAgreementService } from "./lease-agreement.service.js";
+import { logger } from "../../../config/logger.js";
 
 export default class RequestToRentService {
   static repo = dataSource.getRepository(RequestToRentEntity);
@@ -375,6 +376,17 @@ export default class RequestToRentService {
         request.lastName,
         request.moveInDate
       );
+
+      const leaseResult = await this.leaseAgreementService.generateFinalSignedLeaseAgreement(
+        requestToRentId
+      );
+
+      await this.repo.update(
+        { id: requestToRentId },
+        { leaseAgreementUrl: leaseResult.s3Url } as any
+      );
+
+      logger.info(`Lease agreement auto-generated for approved request: ${requestToRentId}`);
     }
 
     return updatedRequest;

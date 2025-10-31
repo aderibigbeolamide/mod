@@ -353,7 +353,12 @@ const PropertyController = {
         });
       }
 
-      const data = await PropertyService.signLeaseAgreement(userId, unitId);
+      const clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() 
+        || req.headers['x-real-ip']?.toString() 
+        || req.socket.remoteAddress 
+        || 'Unknown';
+
+      const data = await PropertyService.signLeaseAgreement(userId, unitId, clientIp);
 
       return Utility.sendResponse(res, {
         data,
