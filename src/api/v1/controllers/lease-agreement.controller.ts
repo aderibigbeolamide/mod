@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response } from 'express';
+ import { NextFunction, Request, Response } from 'express';
 import { LeaseAgreementService } from '../services/lease-agreement.service.js';
 import { logger } from '../../../config/logger.js';
 import Utility from '../../../utils/utility.js';
@@ -68,7 +68,7 @@ const LeaseAgreementController = {
     }
   },
 
-  signLeaseAgreement: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+ signLeaseAgreement: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { requestToRentId } = req.params;
 
