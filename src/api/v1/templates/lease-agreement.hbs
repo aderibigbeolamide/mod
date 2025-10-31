@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -162,11 +163,22 @@
         }
     </style>
 </head>
+
 <body>
     <div class="header">
-        <div class="logo">LetBud</div>
-        <div class="logo-subtitle">PROFESSIONAL PROPERTY MANAGEMENT</div>
+        <div style="display: flex; flex-direction: column; align-items: center;">
+            <img src="{{logoPath}}" alt="LetBud Logo"
+                style="height: 90px; width: 104px; object-fit: contain; margin-bottom: 5px;"
+                onerror="this.style.display='none'; document.getElementById('letbudTextLogo').style.display='block';" />
+            <div id="letbudTextLogo"
+                style="font-size: 36px; font-weight: bold; color: #2c3e50; margin-bottom: 5px; display: none;">
+                LetBud
+            </div>
+            <div class="logo-subtitle">PROFESSIONAL PROPERTY MANAGEMENT</div>
+        </div>
     </div>
+
+
 
     <div class="document-title">Residential Lease Agreement</div>
 
@@ -291,9 +303,9 @@
                     <div class="info-label">Agency Fee</div>
                     <div class="info-value">
                         {{#if unit.fixedAgencyFee}}
-                            ₦{{unit.fixedAgencyFee}}
+                        ₦{{unit.fixedAgencyFee}}
                         {{else}}
-                            {{unit.agencyFeePercentage}}% of rent
+                        {{unit.agencyFeePercentage}}% of rent
                         {{/if}}
                     </div>
                 </div>
@@ -307,41 +319,61 @@
         <div class="section-title">Terms and Conditions</div>
         <div class="terms">
             <ol>
-                <li><strong>Lease Duration:</strong> This lease agreement begins on {{tenant.moveInDate}} and continues on a {{property.leaseTerm}} basis. The tenant agrees to pay rent of ₦{{unit.price}} {{property.leaseTerm}}.</li>
-                
-                <li><strong>Security Deposit:</strong> A security deposit may be required as per the landlord's policy. This deposit will be held for the duration of the lease and returned within the stipulated time after lease termination, subject to property inspection.</li>
-                
-                <li><strong>Payment Terms:</strong> Rent is due on the {{unit.paymentSchedule}} basis. Late payments may incur additional charges as specified by the landlord.</li>
-                
-                <li><strong>Property Use:</strong> The tenant agrees to use the property solely for residential purposes and to comply with all local laws and regulations.</li>
-                
-                <li><strong>Maintenance:</strong> The tenant is responsible for maintaining the property in good condition and promptly reporting any damages or required repairs to the landlord.</li>
-                
+                <li><strong>Lease Duration:</strong> This lease agreement begins on {{tenant.moveInDate}} and continues
+                    on a {{property.leaseTerm}} basis. The tenant agrees to pay rent of ₦{{unit.price}}
+                    {{property.leaseTerm}}.</li>
+
+                <li><strong>Security Deposit:</strong> A security deposit may be required as per the landlord's policy.
+                    This deposit will be held for the duration of the lease and returned within the stipulated time
+                    after lease termination, subject to property inspection.</li>
+
+                <li><strong>Payment Terms:</strong> Rent is due on the {{unit.paymentSchedule}} basis. Late payments may
+                    incur additional charges as specified by the landlord.</li>
+
+                <li><strong>Property Use:</strong> The tenant agrees to use the property solely for residential purposes
+                    and to comply with all local laws and regulations.</li>
+
+                <li><strong>Maintenance:</strong> The tenant is responsible for maintaining the property in good
+                    condition and promptly reporting any damages or required repairs to the landlord.</li>
+
                 {{#if property.leasePolicy.allowPets}}
-                <li><strong>Pet Policy:</strong> Pets are {{property.leasePolicy.allowPets}} allowed. {{#if property.leasePolicy.petDeposit}}A pet deposit of ₦{{property.leasePolicy.petDeposit}} is required.{{/if}}</li>
+                <li><strong>Pet Policy:</strong> Pets are {{property.leasePolicy.allowPets}} allowed. {{#if
+                    property.leasePolicy.petDeposit}}A pet deposit of ₦{{property.leasePolicy.petDeposit}} is
+                    required.{{/if}}</li>
                 {{else}}
-                <li><strong>Pet Policy:</strong> No pets are allowed on the premises without prior written consent from the landlord.</li>
+                <li><strong>Pet Policy:</strong> No pets are allowed on the premises without prior written consent from
+                    the landlord.</li>
                 {{/if}}
-                
+
                 {{#if property.leasePolicy.smokingAllowed}}
-                <li><strong>Smoking Policy:</strong> Smoking is allowed only in designated areas as specified by the landlord.</li>
+                <li><strong>Smoking Policy:</strong> Smoking is allowed only in designated areas as specified by the
+                    landlord.</li>
                 {{else}}
-                <li><strong>Smoking Policy:</strong> Smoking is strictly prohibited within the property and common areas.</li>
+                <li><strong>Smoking Policy:</strong> Smoking is strictly prohibited within the property and common
+                    areas.</li>
                 {{/if}}
-                
-                <li><strong>Utilities:</strong> {{#if property.utilities}}Utilities included: {{#each property.utilities}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}.{{else}}Tenant is responsible for all utilities unless otherwise specified.{{/if}}</li>
-                
-                <li><strong>Termination:</strong> Either party may terminate this lease by providing written notice as per the terms of the lease agreement. Early termination may result in penalties as specified.</li>
-                
-                <li><strong>Access:</strong> The landlord reserves the right to access the property for inspections, repairs, or showing to prospective tenants/buyers with reasonable notice (minimum 24 hours).</li>
-                
-                <li><strong>Alterations:</strong> No alterations or improvements shall be made to the property without the prior written consent of the landlord.</li>
-                
-                <li><strong>Subletting:</strong> The tenant shall not sublet the property or assign this lease without the prior written consent of the landlord.</li>
-                
-                <li><strong>Default:</strong> Failure to comply with any terms of this agreement may result in eviction proceedings as per local laws and regulations.</li>
-                
-                <li><strong>Entire Agreement:</strong> This document constitutes the entire agreement between the parties and supersedes all prior negotiations, representations, or agreements.</li>
+
+                <li><strong>Utilities:</strong> {{#if property.utilities}}Utilities included: {{#each
+                    property.utilities}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}.{{else}}Tenant is
+                    responsible for all utilities unless otherwise specified.{{/if}}</li>
+
+                <li><strong>Termination:</strong> Either party may terminate this lease by providing written notice as
+                    per the terms of the lease agreement. Early termination may result in penalties as specified.</li>
+
+                <li><strong>Access:</strong> The landlord reserves the right to access the property for inspections,
+                    repairs, or showing to prospective tenants/buyers with reasonable notice (minimum 24 hours).</li>
+
+                <li><strong>Alterations:</strong> No alterations or improvements shall be made to the property without
+                    the prior written consent of the landlord.</li>
+
+                <li><strong>Subletting:</strong> The tenant shall not sublet the property or assign this lease without
+                    the prior written consent of the landlord.</li>
+
+                <li><strong>Default:</strong> Failure to comply with any terms of this agreement may result in eviction
+                    proceedings as per local laws and regulations.</li>
+
+                <li><strong>Entire Agreement:</strong> This document constitutes the entire agreement between the
+                    parties and supersedes all prior negotiations, representations, or agreements.</li>
             </ol>
         </div>
     </div>
@@ -349,8 +381,9 @@
     <!-- Signature Section -->
     <div class="signature-section">
         <div class="section-title">Signatures</div>
-        <p style="margin-bottom: 30px;">By signing below, both parties acknowledge that they have read, understood, and agree to be bound by the terms and conditions of this Lease Agreement.</p>
-        
+        <p style="margin-bottom: 30px;">By signing below, both parties acknowledge that they have read, understood, and
+            agree to be bound by the terms and conditions of this Lease Agreement.</p>
+
         <div class="signature-box">
             <div>
                 <div class="signature-line">
@@ -376,4 +409,5 @@
         <p style="margin-top: 10px;">Document Generated: {{currentDate}}</p>
     </div>
 </body>
+
 </html>

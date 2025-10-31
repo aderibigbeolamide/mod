@@ -17,6 +17,7 @@ import { In } from "typeorm";
 import CommService from "./comm.service.js";
 import { property } from "lodash-es";
 import { userInfo } from "os";
+import { LeaseAgreementService } from "./lease-agreement.service.js";
 
 export default class RequestToRentService {
   static repo = dataSource.getRepository(RequestToRentEntity);
@@ -24,6 +25,7 @@ export default class RequestToRentService {
   static unitRepo = dataSource.getRepository(PropertyUnitEntity);
   static userRepo = dataSource.getRepository(UserEntity);
   static commService = new CommService();
+  static leaseAgreementService = new LeaseAgreementService();
 
   // Create a new rental request
   public static async createRequest(dto: CreateRequestToRentDto, sender: User) {
@@ -54,13 +56,13 @@ export default class RequestToRentService {
       ...dto,
       createdBy: sender.id,
       userId: sender.id,
-      isComplete: true,
+      isComplete: false,
       isApprove: false,
     });
 
     const savedRequest = await this.repo.save(newRequest);
 
-    
+
 
     return savedRequest;
   }
@@ -102,38 +104,46 @@ export default class RequestToRentService {
 
   // Update completion status
   public static async updateIsComplete(dto: UpdateIsCompleteDto, id: string, sender: User) {
-  const record = await this.repo.findOne({
-    where: { id },
-    relations: ["property"],
-  });
-
-  if (!record) {
-    Utility.throwException({
-      statusNo: 400,
-      message: `RequestToRent ID ${id} does not exist`,
+    const record = await this.repo.findOne({
+      where: { id },
+      relations: ["property"],
     });
-  }
 
-  // Notify applicant
-  await this.commService.sendRequestToRentEmail(sender.email, dto.firstName, dto.lastName);
-
-  // Fetch landlord (lessor) details from the property
-  const property = record.property;
-  if (property && property.lessorUserId) {
-    const landlord = await this.userRepo.findOneBy({ id: property.lessorUserId });
-    if (landlord) {
-      await this.commService.sendRequestToLandlordEmail(
-        landlord.email,       // landlord’s email
-        landlord.username,   // landlord’s name
-        dto.firstName,
-        dto.lastName,
-        sender.email          // applicant email
-      );
+    if (!record) {
+      Utility.throwException({
+        statusNo: 400,
+        message: `RequestToRent ID ${id} does not exist`,
+      });
     }
-  }
 
-  return await this.updateRecord(id, { isComplete: dto.isComplete });
-}
+    if (record.isComplete && dto.isComplete) {
+      Utility.throwException({
+        statusNo: 400,
+        message: `This rental request has already been marked complete.`,
+      });
+    }
+
+    // Notify applicant
+    await this.commService.sendRequestToRentEmail(sender.email, dto.firstName, dto.lastName);
+
+    // Fetch landlord (lessor) details from the property
+    const property = record.property;
+    if (property && property.lessorUserId) {
+      const landlord = await this.userRepo.findOneBy({ id: property.lessorUserId });
+      if (landlord) {
+        await this.commService.sendRequestToLandlordEmail(
+          landlord.email,      // landlord’s email
+          landlord.username,   // landlord’s name
+          dto.firstName,
+          dto.lastName,
+          sender.email         // applicant email
+        );
+      }
+    }
+
+    // ✅ Update to mark as complete
+    return await this.updateRecord(id, { isComplete: true });
+  }
 
   // Fetch a record by ID
   public static async getById(id: string) {
@@ -146,7 +156,7 @@ export default class RequestToRentService {
   }
 
   // delete a rental request
-  public static async deleteRequest(id: string) { 
+  public static async deleteRequest(id: string) {
     const record = await this.getById(id);
     if (!record) {
       Utility.throwException({
@@ -323,50 +333,54 @@ export default class RequestToRentService {
     landlordId: string,
     moveInDate?: Date
   ): Promise<RequestToRentEntity> {
-    // Retrieve the rental request along with its associated unit and property.
     const request = await this.repo.findOne({
       where: { id: requestToRentId, isComplete: true },
-      relations: ["unit", "property"],
+      relations: ["unit", "property", "property.propertyMedia"],
     });
-  
+
     if (!request) {
       Utility.throwException({
         statusNo: 404,
         message: `Rental request with ID ${requestToRentId} not found.`,
       });
     }
-  
-    // Verify that the property's lessorUserId matches the landlordId.
+
     if (!request.property || request.property.lessorUserId !== landlordId) {
       Utility.throwException({
         statusNo: 403,
         message: "You do not have permission to approve this rental request.",
       });
     }
-  
-    // Optionally update the move‑in date if provided.
+
     if (moveInDate) {
       request.moveInDate = moveInDate;
     }
-  
-    // Approve the rental request.
-    request.isApprove = true;
-    // if (Array.isArray(request.property.units)) {
-    //   request.property.units.forEach((unit: any) => {
-    //     unit.applicationApproved = true;
-    //   });
-    // }
+
+    request.isApprove = _isApprove;
     const updatedRequest = await this.repo.save(request);
-    // Send an email notification to the applicant.
+
+    // ✅ Send approval email to the applicant
     await this.commService.sendPropertyApprovalEmail(
       request.email,
       request.firstName,
       request.lastName,
       request.moveInDate
     );
-  
+
+    // ✅ Automatically generate lease agreement if landlord uses LetBud template
+    try {
+      const useLetBudTemplate = request.property?.propertyMedia?.useLetBudTemplate;
+      if (useLetBudTemplate) {
+        console.log("Auto-generating LetBud lease agreement...");
+        await this.leaseAgreementService.generateLeaseAgreement(request.id);
+      }
+    } catch (err) {
+      console.error("Error auto-generating lease agreement:", err);
+    }
+
     return updatedRequest;
   }
+
 
   public static async fetchRenterApplications(renterId: string) {
     const renterApplications = await this.repo.query(
@@ -417,7 +431,7 @@ export default class RequestToRentService {
   }
 
   // get Approved Request To Rent by user id
-    // getApprovedRequestToRentBylessorUserId
+  // getApprovedRequestToRentBylessorUserId
   // public static async getApprovedRequestToRentBylessorUserId(userId: string) {
   //   const approvedRequests = await this.repo.find({
   //     where: {

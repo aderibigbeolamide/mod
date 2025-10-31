@@ -11,6 +11,7 @@ export interface Metadata {
     payeeId: string;
     propertyId?: string;
     unitId?: string;
+    billingDetails?: any;
 }
 
 export interface Data {

@@ -1,6 +1,9 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { BaseEntity } from "./base.entity.js";
 import { IRequestToRent, ITenantInfo } from "../interfaces/request-to-rent.interface.js";
+import { PropertyEntity, PropertyMediaEntity, PropertyUnitEntity } from './property.entity.js';
+import { UserDetailsEntity } from "./user-details.entity.js";
+import { UserEntity } from "./user.entity.js";
 
 
 @Entity({ name: "request_to_rent" })
@@ -99,14 +102,16 @@ export class RequestToRentEntity extends BaseEntity implements IRequestToRent {
 
   @Column({ type: "boolean", nullable: true, default: false }) isApprove: boolean;
 
-    @Column({ type: "boolean", default: false }) leaseAgreementSigned: boolean;
-  
-    @Column({ type: 'timestamp', nullable: true }) leaseAgreementSignedAt: Date;
+  @Column({ type: "boolean", default: false }) leaseAgreementSigned: boolean;
 
-  @Column({ type: "text", nullable: true }) leaseAgreementUrl: string;
+  @Column({ type: 'timestamp', nullable: true }) leaseAgreementSignedAt: Date;
+
+  @Column({ type: 'character varying', nullable: true })
+  leaseAgreementUrl?: string;
+
 
   @Column({ type: "boolean", nullable: true, default: false }) applicationWithdrawn: boolean;
-  
+
   @Column({ type: "timestamp", nullable: true }) withdrawnAt: Date;
 
   // Platform User Information
@@ -118,12 +123,26 @@ export class RequestToRentEntity extends BaseEntity implements IRequestToRent {
   @Column({ type: "uuid", nullable: true })
   unitId: string;
 
-  @ManyToOne("PropertyEntity", (item: any) => item.rentRequests) property?: any;
+  @ManyToOne(() => PropertyEntity, (item) => item.rentRequests) property?: PropertyEntity;
 
-  @ManyToOne("PropertyUnitEntity", (item: any) => item.rentRequests) unit?: any;
 
-  @ManyToOne("UserEntity", (user: any) => user.rentRequests) user?: any;
+  @ManyToOne(() => PropertyUnitEntity, (item) => item.rentRequests) unit?: PropertyEntity[];
 
-  @ManyToOne("UserDetailsEntity", (userDetails: any) => userDetails.rentRequests) userDetails?: any;
+  //   @ManyToOne(() => PropertyEntity, (item) => item.rentRequests)
+  // @JoinColumn({ name: "property_id" }) // Ensures the foreign key is properly mapped
+  // property?: PropertyEntity;
+
+  // @ManyToOne(() => PropertyUnitEntity, (item) => item.rentRequests)
+  // @JoinColumn({ name: "unit_id" }) // Ensures the foreign key is properly mapped
+  // unit?: PropertyUnitEntity;
+
+  // @ManyToOne(() => UserDetailsEntity, (userDetails) => userDetails.rentRequests)
+  // @JoinColumn({ name: "user_id" }) // Ensures the foreign key is properly mapped
+  // userDetails?: UserDetailsEntity;
+
+  @ManyToOne(() => UserEntity, (user) => user.rentRequests) user?: UserEntity[];
+
+  @ManyToOne(() => UserDetailsEntity, (userDetails) => userDetails.rentRequests) userDetails?: UserDetailsEntity[];
+  // @ManyToOne(() => PropertyMediaEntity) media?: PropertyMediaEntity;
 
 }

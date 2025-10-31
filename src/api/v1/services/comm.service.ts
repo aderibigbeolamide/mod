@@ -558,6 +558,86 @@ export default class CommService {
     }
   }
 
+  public async sendTenantPaymentReceiptEmail(
+  tenantEmail: string,
+  tenantName: string,
+  propertyName: string,
+  unitName: string,
+  amount: number,
+  reference: string
+): Promise<void> {
+  const transporter = nodemailer.createTransport(this.conf);
+
+  const html = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <body style="font-family: system-ui; background: #f8fafc; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 10px; padding: 20px;">
+      <h2 style="color: #1b3562;">Payment Received 🎉</h2>
+      <p>Hi ${tenantName},</p>
+      <p>We’ve successfully received your payment of <b>₦${amount.toLocaleString()}</b> for <b>${propertyName}</b> (${unitName}).</p>
+      <p>Your payment reference is <b>${reference}</b>.</p>
+      <p>Our customer service team will contact you shortly to confirm your property details before your payment is released to the landlord.</p>
+      <p>You can download your digital receipt from your dashboard anytime.</p>
+      <br/>
+      <p style="margin-top: 20px;">Thank you for using <b>Letbud</b>!<br/>
+      We’re committed to ensuring your rental process is smooth and transparent.</p>
+      <hr style="margin: 30px 0;">
+      <p style="font-size: 0.9em; color: #6b7280;">If you have any questions, reach out to us at <a href="mailto:supportbud@letbud.com">supportbud@letbud.com</a>.</p>
+    </div>
+  </body>
+  </html>
+  `;
+
+  await transporter.sendMail({
+    from: process.env.MAILER_USER,
+    to: tenantEmail,
+    subject: `✅ Payment Received for ${propertyName}`,
+    html,
+  });
+}
+
+
+
+public async sendLandlordPaymentAlertEmail(
+  landlordEmail: string,
+  landlordName: string,
+  tenantName: string,
+  propertyName: string,
+  unitName: string,
+  amount: number
+): Promise<void> {
+  const transporter = nodemailer.createTransport(this.conf);
+
+  const html = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <body style="font-family: system-ui; background: #f8fafc; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 10px; padding: 20px;">
+      <h2 style="color: #1b3562;">Payment Pending Confirmation 💼</h2>
+      <p>Hi ${landlordName},</p>
+      <p>Your property <b>${propertyName}</b> (${unitName}) has just been paid for by <b>${tenantName}</b>.</p>
+      <p>The total amount is <b>₦${amount.toLocaleString()}</b>.</p>
+      <p>Funds are currently held securely by <b>Letbud</b> and will be released to your registered account after the tenant confirms the property.</p>
+      <p><b>Please ensure that your payout account details are up to date</b> in your Letbud dashboard to avoid delays in receiving funds.</p>
+      <br/>
+      <p>We’ll notify you immediately once the tenant confirms the property.</p>
+      <p style="margin-top: 20px;">Best regards,<br/><b>Team Letbud</b></p>
+    </div>
+  </body>
+  </html>
+  `;
+
+  await transporter.sendMail({
+    from: process.env.MAILER_USER,
+    to: landlordEmail,
+    subject: `🏠 Payment Notification for ${propertyName}`,
+    html,
+  });
+}
+
+
+
 
   public async sendRequestToLandlordEmail(
     landlordEmail: string,

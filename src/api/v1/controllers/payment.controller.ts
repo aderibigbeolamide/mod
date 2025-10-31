@@ -38,7 +38,7 @@ const PaymentController = {
       });
 
       // Step 3: Call the service with the finalized `paymentDto`
-      const result = await new paymentService().makePayment(paymentDto);
+      const result = await new paymentService().makePayment(paymentDto, req);
       res.status(200).json(result);
     } catch (error) {
       logger.error("An error occurred in initiating payment", error);
@@ -48,28 +48,49 @@ const PaymentController = {
 
   async verifyPayment(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // Step 1: Validate the request body using VerifyPaymentDto
+      // Step 1: Validate and parse the request body
       const verifyPayment = new verifyPaymentDto(req.body);
-      console.log(verifyPayment)
 
       if (!verifyPayment.reference) {
         res.status(400).json({
           status: "error",
           message: "Missing transaction reference",
         });
+        return;
       }
 
-      // Step 2: Call the service to verify the payment
-      const donation = await new paymentService().verifyPayment(verifyPayment);
+      // Step 2: Verify the payment using your service
+      const verifiedPayment = await new paymentService().verifyPayment(verifyPayment);
 
-      // Step 3: Send response with verified payment data
-      res.status(200).json({
-        status: "success",
-        message: "Payment verified successfully",
-        data: donation,
-      });
+      // Step 3: Extract dynamic origin (where user started payment)
+      let origin =
+        verifiedPayment?.metadata?.origin || // from Paystack metadata
+        req.headers.origin || // from frontend request
+        process.env.WEB_APP_URL || // fallback to default frontend
+        "https://letbud.com"; // ultimate fallback
+
+      // Step 4: Validate origin against allowed list
+      const allowedOrigins = [
+        "https://letbud.com",
+        "https://www.letbud.com",
+        "https://beta.letbud.com",
+        "https://www.beta.letbud.com",
+        "https://dev.letbud.com",
+        "https://www.dev.letbud.com",
+      ];
+
+      if (!allowedOrigins.includes(origin)) {
+        console.warn(`Unrecognized origin "${origin}" — falling back to default.`);
+        origin = "https://letbud.com";
+      }
+
+      // Step 5: Redirect user back to frontend for confirmation
+      const redirectUrl = `${origin}/payment/success?reference=${verifyPayment.reference}`;
+
+      console.log(`✅ Redirecting user to: ${redirectUrl}`);
+      return res.redirect(302, redirectUrl);
     } catch (error) {
-      logger.error("An error occurred in verifying the payment", error);
+      logger.error("An error occurred while verifying the payment", error);
       next(error);
     }
   },

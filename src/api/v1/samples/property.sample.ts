@@ -211,8 +211,7 @@ export namespace PropertySample {
     description: null,
     faq: [
       {
-        question:
-          "What are the move-in requirements, such as security deposit and first month's rent?",
+        question: "What are the move-in requirements, such as security deposit and first month's rent?",
         answer: "La la la",
       },
     ],
@@ -347,6 +346,7 @@ export namespace PropertySample {
       },
     ],
     rentRequests: [],
+    lessor: new LessorInfoEntity
   };
 
   export const search: SearchResponse<PropertyEntity> = {

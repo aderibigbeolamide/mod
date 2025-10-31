@@ -177,6 +177,8 @@ export class PropertyEntity extends BaseEntity implements Property {
 
   // @ManyToOne(() => LessorInfoEntity, (lessor) => lessor.properties, { nullable: false, onDelete: "SET NULL" })
   // lessor: LessorInfoEntity;
+  @ManyToOne(() => LessorInfoEntity, (lessor) => lessor.id, { nullable: true })
+  lessor: LessorInfoEntity;
 
   @Column({
     type: "json",

@@ -38,7 +38,6 @@ export interface IRequestToRent {
   emergencyContactEmail: string;
   emergencyContactPhoneNumber: string;
   isComplete: boolean;
-  leaseAgreementUrl?: string;
   userId?: string;
   propertyId?: string;
   unitId?: string;

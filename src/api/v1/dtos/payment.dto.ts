@@ -42,6 +42,9 @@ export class PaymentDto implements Partial<Payment> {
     @IsOptional()
     amount: number;
 
+    @IsOptional()
+    billingDetails?: any;
+
     @IsEnum(PaymentStatuses)
     @IsOptional()
     status?: PaymentStatuses = PaymentStatuses.INITIALIZED;
@@ -128,6 +131,10 @@ export class verifyPaymentDto {
     @IsString()
     @IsOptional()
     payerId?: string;  // This will store the payer's ID
+
+    metadata?: {
+    origin?: string;
+  };
 
     constructor(obj?: Partial<verifyPaymentDto>) {
         if (obj) {

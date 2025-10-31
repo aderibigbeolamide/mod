@@ -304,14 +304,25 @@ export default class SearchService {
     queryStruct: SearchQueryItem<TSearchQuery>[],
     query: TSearchQuery,
     relations: { columnName: string; tableName: string }[] = [],
-    useFrontendUrl: boolean = false
+    useFrontendUrl: boolean = false,
+    includePaidFilter: boolean = false
   ): Promise<SearchResponse<TEntity>> {
     const tableName = entity.tableName;
     let queryBuild = dataSource.getRepository(entity.entity).createQueryBuilder(tableName);
     // Always filter for complete properties
     if (tableName === 'property') {
-      queryBuild.andWhere(`${tableName}.is_complete = :isComplete`, { isComplete: true });
+      queryBuild
+        .leftJoinAndSelect(`${tableName}.units`, 'unit')
+        .leftJoinAndSelect(`${tableName}.propertyMedia`, 'propertyMedia')
+        .andWhere(`${tableName}.is_complete = :isComplete`, { isComplete: true });
+
+      // 👇 Only apply unpaid filter for property search pages
+      if (includePaidFilter) {
+        queryBuild.andWhere('(unit.isPaid = false OR unit.isPaid IS NULL)');
+      }
     }
+
+
     queryStruct.concat(this.defaultQueryStruct).forEach((queryParam) => {
       const hasValue =
         query[queryParam.field as keyof TSearchQuery] != null ||
@@ -367,9 +378,15 @@ export default class SearchService {
       .take(pageSize + 1); // Fetch one extra record to check for `hasMore`
 
     // Join relations
-    for (let relation of relations) {
-      queryBuild.leftJoinAndSelect(`${tableName}.${relation.columnName}`, relation.tableName);
+    // ✅ Enhanced Join Relations (supports nested paths like 'property.propertyMedia')
+    for (const relation of relations) {
+      const relationPath = relation.columnName.includes('.')
+        ? relation.columnName // handles nested relations (e.g., property.propertyMedia)
+        : `${tableName}.${relation.columnName}`; // handles direct relations (e.g., unit, user)
+
+      queryBuild.leftJoinAndSelect(relationPath, relation.tableName);
     }
+
 
     const result = await queryBuild.getMany();
     const hasMore = result.length > pageSize;

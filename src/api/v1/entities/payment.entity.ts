@@ -40,8 +40,9 @@ export class PaymentEntity implements Payment {
   @Column({ type: "uuid", nullable: true })
   unitId: string;
 
-  @Column({ nullable: false })
+  @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;
+
 
   @Column({
     type: "enum",

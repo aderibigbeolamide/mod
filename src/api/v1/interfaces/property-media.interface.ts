@@ -8,4 +8,5 @@ export interface PropertyMedia {
   leaseDocumentName: string;
   leaseDocumentUrl: string;
   property?: Property;
+  useLetBudTemplate: boolean;
 }

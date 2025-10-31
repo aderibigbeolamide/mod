@@ -25,6 +25,7 @@ import { PropertyEntity, PropertyUnitEntity } from "../entities/property.entity.
 import { instanceToPlain } from "class-transformer";
 import CommService from "./comm.service.js";
 import { RequestToRentEntity } from "../entities/request-to-rent.entity.js";
+import PropertyService from "./property.service.js";
 
 class PaymentService {
 
@@ -36,6 +37,7 @@ class PaymentService {
   // monnifyApi = new MonnifyApi();
   paymentTransactionService = new PaymentTransactionService();
   paymentRateService = new PaymentRateService();
+  commService = new CommService();
 
   // Payment lock timeout in minutes
   private readonly PAYMENT_LOCK_TIMEOUT = 15;
@@ -336,37 +338,39 @@ class PaymentService {
   //   };
   // }
 
-private getAppDomain(): string {
-  // Priority 1: Check if APP_DOMAIN is explicitly set (production deployments)
-  if (process.env.APP_DOMAIN && process.env.APP_DOMAIN !== 'http://localhost:5000') {
-    console.log(`Using APP_DOMAIN: ${process.env.APP_DOMAIN}`);
-    return process.env.APP_DOMAIN;
+  private getAppDomain(): string {
+    // Priority 1: Check if APP_DOMAIN is explicitly set (production deployments)
+    if (process.env.APP_DOMAIN && process.env.APP_DOMAIN !== 'http://localhost:5000') {
+      console.log(`Using APP_DOMAIN: ${process.env.APP_DOMAIN}`);
+      return process.env.APP_DOMAIN;
+    }
+
+
+    // Priority 7: Check NODE_ENV for production with fallback
+    if (process.env.NODE_ENV === 'production') {
+      // If in production but no specific domain found, this might be an issue
+      console.warn('Running in production but no production domain detected. Using localhost fallback.');
+    }
+
+    // Priority 7: Check NODE_ENV for production with fallback
+    if (process.env.NODE_ENV === 'development') {
+      // If in development but no specific domain found, this might be an issue
+      console.warn('Running in development but no development domain detected. Using localhost fallback.');
+    }
+
+    // Final fallback to localhost for local development
+    const fallbackDomain = 'http://localhost:5000';
+    console.log(`Using fallback domain: ${fallbackDomain}`);
+    return fallbackDomain;
   }
 
 
-  // Priority 7: Check NODE_ENV for production with fallback
-  if (process.env.NODE_ENV === 'production') {
-    // If in production but no specific domain found, this might be an issue
-    console.warn('Running in production but no production domain detected. Using localhost fallback.');
-  }
-
-  // Priority 7: Check NODE_ENV for production with fallback
-  if (process.env.NODE_ENV === 'development') {
-    // If in development but no specific domain found, this might be an issue
-    console.warn('Running in development but no development domain detected. Using localhost fallback.');
-  }
-
-  // Final fallback to localhost for local development
-  const fallbackDomain = 'http://localhost:5000';
-  console.log(`Using fallback domain: ${fallbackDomain}`);
-  return fallbackDomain;
-}
-
-
-  public async makePayment(paymentDto: PaymentDto): Promise < PaymentDto > {
-  // Step 1: Verify the payer's existence
-  const payer = await this.paymentRepo.manager.findOne(UserEntity, { where: { id: paymentDto.payer.id } });
-  if(!payer) {
+public async makePayment(paymentDto: PaymentDto, req?: Request): Promise<PaymentDto> {
+  // Step 1: Verify payer existence
+  const payer = await this.paymentRepo.manager.findOne(UserEntity, {
+    where: { id: paymentDto.payer.id },
+  });
+  if (!payer) {
     throw new HttpException(
       404,
       "Payer not found",
@@ -375,8 +379,8 @@ private getAppDomain(): string {
     );
   }
 
-    // Step 2: Validate the property and unit existence
-    const property = paymentDto.propertyId
+  // Step 2: Validate property/unit
+  const property = paymentDto.propertyId
     ? await this.paymentRepo.manager.findOne(PropertyEntity, { where: { id: paymentDto.propertyId } })
     : null;
 
@@ -384,114 +388,119 @@ private getAppDomain(): string {
     ? await this.paymentRepo.manager.findOne(PropertyUnitEntity, { where: { id: paymentDto.unitId } })
     : null;
 
-  if(paymentDto.propertyId && !property) {
-  throw new HttpException(404, "Property not found", `Property ID: ${paymentDto.propertyId} does not exist.`, "ERROR_CODE_PROPERTY_NOT_FOUND");
-}
-
-if (paymentDto.unitId && !unit) {
-  throw new HttpException(404, "Unit not found", `Unit ID: ${paymentDto.unitId} does not exist.`, "ERROR_CODE_UNIT_NOT_FOUND");
-}
-
-// Step 2.5: Check unit availability and lock it if payment is for a specific unit
-if (paymentDto.unitId) {
-  // Cleanup expired locks first
-  await this.cleanupExpiredLocks();
-
-  // Check unit availability
-  const availability = await this.checkUnitAvailability(paymentDto.unitId);
-  if (!availability.available) {
-    throw new HttpException(
-      409, // Conflict status code
-      "Unit not available",
-      availability.message,
-      "ERROR_CODE_UNIT_NOT_AVAILABLE"
-    );
+  if (paymentDto.propertyId && !property) {
+    throw new HttpException(404, "Property not found", `Property ID: ${paymentDto.propertyId} does not exist.`, "ERROR_CODE_PROPERTY_NOT_FOUND");
   }
 
-  // Attempt to lock the unit
-  const lockSuccessful = await this.lockUnit(paymentDto.unitId, payer.id);
-  if (!lockSuccessful) {
-    throw new HttpException(
-      409,
-      "Unit not available",
-      "Another user is currently processing payment for this unit. Please try again later.",
-      "ERROR_CODE_UNIT_LOCKED"
-    );
+  if (paymentDto.unitId && !unit) {
+    throw new HttpException(404, "Unit not found", `Unit ID: ${paymentDto.unitId} does not exist.`, "ERROR_CODE_UNIT_NOT_FOUND");
   }
-}
 
-let paymentResponse: InitializePaymentResponse;
+  // Step 3: Lock and validate unit
+  if (unit) {
+    await this.cleanupExpiredLocks();
+    const availability = await this.checkUnitAvailability(unit.id);
+    if (!availability.available) {
+      throw new HttpException(409, "Unit not available", availability.message, "ERROR_CODE_UNIT_NOT_AVAILABLE");
+    }
 
-try {
-  // Step 3: Initialize payment with Paystack
-  paymentResponse = await this.paystackApi.initializePayment({
-    email: paymentDto.email,
-    amount: paymentDto.amount,
-    metadata: {
-      amount: paymentDto.amount,
+    const lockSuccessful = await this.lockUnit(unit.id, payer.id);
+    if (!lockSuccessful) {
+      throw new HttpException(
+        409,
+        "Unit not available",
+        "Another user is currently processing payment for this unit. Please try again later.",
+        "ERROR_CODE_UNIT_LOCKED"
+      );
+    }
+  }
+
+  // ✅ Step 4: Billing details
+  const billingDetails = await PropertyService.generateBillingAnalytics(
+    paymentDto.propertyId,
+    paymentDto.unitId
+  );
+  const actualAmount = billingDetails.total;
+
+  // ✅ Step 5: Dynamic domain detection
+  const origin =
+    req?.headers.origin || req?.headers.referer || process.env.WEB_APP_URL || this.getAppDomain();
+
+  // Safety: remove trailing slashes
+  const normalizedOrigin = origin.replace(/\/$/, "");
+
+  // Build callback URL dynamically
+  const callbackUrl = `${normalizedOrigin}/payment/verify?reference={reference}`;
+
+  // ✅ Step 6: Initialize Paystack Payment
+  let paymentResponse: InitializePaymentResponse;
+  try {
+    paymentResponse = await this.paystackApi.initializePayment({
       email: paymentDto.email,
-      payerId: paymentDto.payer.id,
-      payeeId: paymentDto.payee?.id || null,
-      propertyId: paymentDto.propertyId,
-      unitId: paymentDto.unitId,
-    },
+      amount: Math.round(actualAmount * 100),
+      callback_url: callbackUrl.replace("{reference}", ""), // Paystack fills this in later
+      metadata: {
+        origin: normalizedOrigin,
+        amount: actualAmount,
+        billingDetails,
+        email: paymentDto.email,
+        payerId: paymentDto.payer.id,
+        payeeId: paymentDto.payee?.id || null,
+        propertyId: paymentDto.propertyId,
+        unitId: paymentDto.unitId,
+      } as any,
+    });
+
+    if (!paymentResponse?.reference) {
+      throw new HttpException(
+        500,
+        "Initialization error",
+        "Failed to initialize payment with Paystack",
+        "ERROR_CODE_PAYMENT_002"
+      );
+    }
+  } catch (error) {
+    if (unit) await this.unlockUnit(unit.id, payer.id);
+    throw error;
+  }
+
+  // ✅ Step 7: Save payment
+  const payment = this.paymentRepo.create({
+    amount: actualAmount,
+    status: PaymentStatuses.INITIALIZED,
+    reference: paymentResponse.reference,
+    accessCode: paymentResponse.accessCode,
+    authorizationUrl: paymentResponse.authorizationUrl,
+    email: paymentDto.email,
+    channel: paymentDto.channel,
+    payer,
+    payee: paymentDto.payee ?? null,
+    payeeRole: paymentDto.payeeRole,
+    property,
+    unit,
   });
 
-  if (!paymentResponse || !paymentResponse.reference) {
-    throw new HttpException(
-      500,
-      "Initialization error",
-      "Failed to initialize payment with Paystack",
-      "ERROR_CODE_PAYMENT_002"
-    );
-  }
-} catch (error) {
-  // If payment initialization fails, unlock the unit
-  if (paymentDto.unitId) {
-    await this.unlockUnit(paymentDto.unitId, payer.id);
-  }
-  throw error;
+  await this.paymentRepo.save(payment);
+
+  // ✅ Step 8: Return dynamic callback URL in response
+  return {
+    reference: paymentResponse.reference,
+    amount: actualAmount,
+    email: paymentDto.email,
+    callbackUrl: `${normalizedOrigin}/payment/verify?reference=${paymentResponse.reference}`,
+    accessCode: paymentResponse.accessCode,
+    authorizationUrl: paymentResponse.authorizationUrl,
+    channel: paymentDto.channel,
+    payer,
+    payeeRole: paymentDto.payeeRole,
+    propertyId: paymentDto.propertyId,
+    unitId: paymentDto.unitId,
+    billingDetails,
+  };
 }
 
-// Construct the callback URL
-const reference = paymentResponse.reference;
-const callbackUrl = `${this.getAppDomain()}/payment/verify?reference=${reference}`;
 
-// Step 4: Create and save the payment record
-const payment = this.paymentRepo.create({
-  amount: paymentDto.amount,
-  status: PaymentStatuses.INITIALIZED,
-  reference: paymentResponse.reference,
-  accessCode: paymentResponse.accessCode,
-  authorizationUrl: paymentResponse.authorizationUrl,
-  email: paymentDto.email,
-  channel: paymentDto.channel,
-  payer: payer,
-  payee: paymentDto.payee ? paymentDto.payee : null,
-  payeeRole: paymentDto.payeeRole,
-  property: property,
-  propertyId: paymentDto.propertyId,
-  unit: unit,
-  unitId: paymentDto.unitId,
-});
 
-await this.paymentRepo.save(payment);
-
-// Step 5: Return response containing required fields
-return {
-  reference: paymentResponse.reference,
-  amount: paymentDto.amount,
-  email: paymentDto.email,
-  callbackUrl: callbackUrl,
-  accessCode: paymentResponse.accessCode,
-  authorizationUrl: paymentResponse.authorizationUrl,
-  channel: paymentDto.channel,
-  payer: payer,
-  payeeRole: paymentDto.payeeRole,
-  propertyId: paymentDto.propertyId,
-  unitId: paymentDto.unitId,
-};
-  }
 
   // async makePayment(paymentDto: PaymentDto): Promise<PaymentDto> {
   //   // 1. Verify the payer
@@ -572,80 +581,163 @@ return {
 
 
 
-  public async verifyPayment(verifyPayment: verifyPaymentDto): Promise < verifyPaymentDto > {
+public async verifyPayment(verifyPayment: verifyPaymentDto): Promise<verifyPaymentDto> {
   let payment: PaymentEntity | null = null;
 
   try {
-    // Step 1: Retrieve payment entity by reference first
+    // ✅ Step 1: Retrieve payment record with full relations
     payment = await this.paymentRepo.manager.findOne(PaymentEntity, {
       where: { reference: verifyPayment.reference },
-      relations: ['payer', 'property', 'unit'], // Include payer, property, and unit in the query
+      relations: [
+        'payer',
+        'payer.userDetails',
+        'property',
+        'property.lessor',
+        'unit',
+      ],
     });
 
-    if(!payment) {
-      throw new Error('Payment not found');
+    if (!payment) throw new Error('Payment not found');
+
+    // ✅ Step 2: Verify payment from Paystack
+    const verifyResponse = await this.paystackApi.verifyPayment(verifyPayment.reference);
+
+    if (!verifyResponse || verifyResponse.status !== 'success') {
+      if (payment.unitId && payment.payer) {
+        await this.unlockUnit(payment.unitId, payment.payer.id);
+      }
+      throw new Error('Payment verification failed');
     }
 
-      // Step 2: Call Paystack API to verify payment
-      const verifyResponse = await this.paystackApi.verifyPayment(verifyPayment.reference);
+    // ✅ Step 3: Convert verified amount from kobo to naira
+    const verifiedAmount = verifyResponse.amount / 100;
 
-    if(!verifyResponse || verifyResponse.status !== 'success') {
-  // Payment verification failed - unlock the unit if it was locked for this payment
-  if (payment.unitId && payment.payer) {
-    await this.unlockUnit(payment.unitId, payment.payer.id);
+    // ✅ Step 4: Retrieve billing analytics for property & unit
+    const billingDetails = await PropertyService.generateBillingAnalytics(
+      payment.property?.id,
+      payment.unit?.id
+    );
+
+    const realAmount = billingDetails.total;
+
+    // ✅ Step 5: Validate payment amount
+    if (verifiedAmount < realAmount) {
+      console.error(`❌ Payment amount mismatch! Expected ₦${realAmount}, got ₦${verifiedAmount}`);
+
+      payment.status = PaymentStatuses.FAILED;
+      await this.paymentRepo.save(payment);
+
+      // Unlock unit if mismatch
+      if (payment.unitId && payment.payer) {
+        await this.unlockUnit(payment.unitId, payment.payer.id);
+      }
+
+      throw new Error('Payment amount mismatch. Please contact support.');
+    }
+
+    // ✅ Step 6: Mark as confirmed and save verified amount
+    payment.status = PaymentStatuses.CONFIRMED;
+    payment.amount = verifiedAmount;
+    await this.paymentRepo.save(payment);
+
+    // ✅ Step 7: Safe name resolution with fallbacks
+    const payerFullName =
+      payment.payer?.userDetails?.firstName && payment.payer?.userDetails?.lastName
+        ? `${payment.payer.userDetails.firstName} ${payment.payer.userDetails.lastName}`
+        : payment.payer?.username
+          ? payment.payer.username
+          : payment.email || 'Unknown Payer';
+
+    const payeeFullName =
+      payment.property?.lessor?.firstName && payment.property?.lessor?.lastName
+        ? `${payment.property.lessor.firstName} ${payment.property.lessor.lastName}`
+        : payment.property?.lessor?.email || 'Unknown Lessor';
+
+    // Debug logs for visibility
+    console.log('🔍 Debug payer:', payment.payer);
+    console.log('🔍 Debug payer.userDetails:', payment.payer?.userDetails);
+    console.log('🔍 Debug property.lessor:', payment.property?.lessor);
+
+    // ✅ Step 8: Send notification emails
+    try {
+      const tenantAddress = payment.property?.address || '';
+      const tenantUnitName = payment.unit?.label || '';
+      const paidAmount = verifiedAmount;
+      const propertyTitle = payment.property?.address || '';
+
+      // Tenant (payer) email
+      if (payment.payer?.email) {
+        await this.commService.sendTenantPaymentReceiptEmail(
+          payment.payer.email,
+          payerFullName,
+          tenantAddress,
+          tenantUnitName,
+          paidAmount,
+          payment.reference
+        );
+      }
+
+      // Landlord (lessor) email
+      if (payment.property?.lessor?.email) {
+        await this.commService.sendLandlordPaymentAlertEmail(
+          payment.property.lessor.email,
+          payeeFullName,
+          payerFullName,
+          propertyTitle,
+          tenantUnitName,
+          paidAmount
+        );
+      }
+    } catch (emailError) {
+      console.error('⚠️ Error sending payment notification emails:', emailError);
+    }
+
+    // ✅ Step 9: Mark the unit as paid until next rent cycle
+    if (payment.unitId && payment.payer) {
+      const paidUntil = new Date();
+      paidUntil.setMonth(paidUntil.getMonth() + 1);
+      await this.markUnitAsPaid(payment.unitId, paidUntil);
+      console.log(`✅ Unit ${payment.unitId} marked as paid until ${paidUntil.toISOString()}`);
+    }
+
+    // ✅ Step 10: Return response for frontend
+    return new verifyPaymentDto({
+      reference: verifyPayment.reference,
+      amount: verifiedAmount,
+      email: payment.email,
+      name: payerFullName,
+      payerId: payment.payer?.id || '',
+      propertyId: payment.property?.id || '',
+      unitId: payment.unit?.id || '',
+    });
+
+  } catch (error) {
+    if (payment && payment.unitId && payment.payer) {
+      await this.unlockUnit(payment.unitId, payment.payer.id);
+    }
+
+    console.error('❌ Payment verification error:', error.message || error);
+    throw error;
   }
-  throw new Error('Payment verification failed');
 }
 
-// Step 3: Update payment status to 'CONFIRMED'
-payment.status = PaymentStatuses.CONFIRMED;
-await this.paymentRepo.save(payment);
 
-// Step 4: Handle unit lock release and mark as paid for successful payment
-if (payment.unitId && payment.payer) {
-  // Calculate paid until date (assuming monthly payment)
-  const paidUntil = new Date();
-  paidUntil.setMonth(paidUntil.getMonth() + 1); // Add one month
 
-  // Mark unit as paid and release lock
-  await this.markUnitAsPaid(payment.unitId, paidUntil);
-
-  console.log(`Unit ${payment.unitId} marked as paid until ${paidUntil.toISOString()} after successful payment verification`);
-}
-
-// Step 5: Return payment DTO with required fields
-return new verifyPaymentDto({
-  reference: verifyPayment.reference,
-  amount: verifyResponse.amount,
-  email: payment.email, // Assuming email is from payment
-  name: payment.payer?.username || '', // Username from payer or empty string
-  payerId: payment.payer?.id || '', // Payer ID or empty string
-  propertyId: payment.property?.id || '', // Property ID or empty string
-  unitId: payment.unit?.id || '', // Unit ID or empty string
-});
-
-    } catch (error) {
-  // If any error occurs and we have payment info, unlock the unit
-  if (payment && payment.unitId && payment.payer) {
-    await this.unlockUnit(payment.unitId, payment.payer.id);
-  }
-  throw error;
-}
-  }
 
   // Cancelled  Paystack Payment
-  public async cancelPayment(unitId: string, payerId: string): Promise < void> {
-  await this.unlockUnit(unitId, payerId);
+  public async cancelPayment(unitId: string, payerId: string): Promise<void> {
+    await this.unlockUnit(unitId, payerId);
 
-  const payment = await this.paymentRepo.findOne({
-    where: { unit: { id: unitId }, payer: { id: payerId }, status: PaymentStatuses.INITIALIZED }
-  });
+    const payment = await this.paymentRepo.findOne({
+      where: { unit: { id: unitId }, payer: { id: payerId }, status: PaymentStatuses.INITIALIZED }
+    });
 
-  if(payment) {
-    payment.status = PaymentStatuses.CANCELLED;
-    await this.paymentRepo.save(payment);
+    if (payment) {
+      payment.status = PaymentStatuses.CANCELLED;
+      payment.amount = payment.amount / 100;
+      await this.paymentRepo.save(payment);
+    }
   }
-}
 
 
   // public async verifyPayment(transactionReference: string): Promise<verifyPaymentDto> {
@@ -735,31 +827,31 @@ return new verifyPaymentDto({
   // }
 
   // Refund payment
-  public async refundPayment(transactionId: string): Promise < { status: string; message: string } > {
-  try {
-    const transaction = await this.transactionRepo.findOneBy({ id: transactionId });
-    if(!transaction) throw new Error("Transaction not found");
+  public async refundPayment(transactionId: string): Promise<{ status: string; message: string }> {
+    try {
+      const transaction = await this.transactionRepo.findOneBy({ id: transactionId });
+      if (!transaction) throw new Error("Transaction not found");
 
-    // If the user triggers a refund, no transfer is made to the property owner
-    if(transaction.status === PaymentTransactionStatus.PENDING) {
-  await this.paystackApi.refundPayment({
-    transaction: transaction.reference,
-    amount: transaction.amount,
-  });
-  transaction.status = PaymentTransactionStatus.REFUND;
-  await this.transactionRepo.save(transaction);
-}
+      // If the user triggers a refund, no transfer is made to the property owner
+      if (transaction.status === PaymentTransactionStatus.PENDING) {
+        await this.paystackApi.refundPayment({
+          transaction: transaction.reference,
+          amount: transaction.amount,
+        });
+        transaction.status = PaymentTransactionStatus.REFUND;
+        await this.transactionRepo.save(transaction);
+      }
 
-return {
-  status: "success",
-  message: "Refund has been processed and is pending further verification."
-};
+      return {
+        status: "success",
+        message: "Refund has been processed and is pending further verification."
+      };
     } catch (error) {
-  return {
-    status: "error",
-    message: "Failed to process refund."
-  };
-}
+      return {
+        status: "error",
+        message: "Failed to process refund."
+      };
+    }
   }
 
   // Fetch BankNames and Bank codes
@@ -786,11 +878,11 @@ return {
 
 
   // GetAllFaild Payments
-  public async getAllFailedPayments(): Promise < PaymentEntity[] > {
-  const failed = this.paymentRepo.find({ where: { status: PaymentStatuses.FAILED } });
-  if(!failed) throw new Error("Failed to retrieve failed payments");
-  return failed;
-}
+  public async getAllFailedPayments(): Promise<PaymentEntity[]> {
+    const failed = this.paymentRepo.find({ where: { status: PaymentStatuses.FAILED } });
+    if (!failed) throw new Error("Failed to retrieve failed payments");
+    return failed;
+  }
 }
 
 

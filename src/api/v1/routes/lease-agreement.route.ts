@@ -1,5 +1,5 @@
 import Utility from "../../../utils/utility.js";
-import LeaseAgreementController from "../controllers/lease-agreement.controller.js";
+import LeaseAgreementController from "../controllers/lease-agreement.comtroller.js";
 import { authenticateUser } from "../middlewares/auth.middleware.js";
 
 const LeaseAgreementRoute = Utility.swaggerRouteToAppRoute({

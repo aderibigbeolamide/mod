@@ -20,4 +20,7 @@ export interface Payment {
 
 export interface verifyPayment{
   reference: string;
+  metadata?: {
+    origin?: string;
+  };
 }

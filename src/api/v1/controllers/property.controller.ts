@@ -951,12 +951,23 @@ const PropertyController = {
   },
 
   rentedUnits: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const rentedUnits = await PropertyService.getRentedUnits(req.sender.id);
+     try {
 
+      // Explicitly convert query params
+      const pageNumber = parseInt(req.query.pageNumber as string, 10) || 1;
+      const pageSize = parseInt(req.query.pageSize as string, 10) || 8;
+
+      // Ensure converted values are passed correctly
+      const query = new PropertySearchQueryDto({
+        ...req.query,
+        pageNumber,
+        pageSize,
+      });
+      await Utility.validate(query);
+      const sender = req.sender.id;
+      console.log("Query created by is", sender);
       Utility.sendResponse(res, {
-        data: { data: rentedUnits, total: rentedUnits.length },
-        message: "Units Rented by a RENTER",
+        data: await PropertyService.getRentedUnits(sender, query),
       });
     } catch (error) {
       Utility.returnError(res, error);

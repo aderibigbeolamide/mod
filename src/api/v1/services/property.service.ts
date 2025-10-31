@@ -24,7 +24,7 @@ import Utility from "../../../utils/utility.js";
 import { AvailabilityStatuses } from "../enums/availability.statuses.enum.js";
 import { PropertyUnit, PropertyUnitAnalytics } from "../interfaces/unit.interface.js";
 import { Coordinates } from "../interfaces/base.interface.js";
-import { SearchQuery, SearchQueryItem } from "../interfaces/search.interface.js";
+import { SearchQuery, SearchQueryItem, SearchResponse } from "../interfaces/search.interface.js";
 import { SearchCondition } from "../enums/search.enum.js";
 import { filter, uniq } from "lodash-es";
 import { User } from "../interfaces/user.interface.js";
@@ -757,7 +757,7 @@ export default class PropertyService {
 
     // Check if user has requested to rent the unit
     const rentRequested = await this.requestToRentRepo.findOne({
-      where: { userId: userId, unit: { id: unitId }, applicationWithdrawn: false },
+      where: { userId: userId, unit: { id: unitId }, applicationWithdrawn: false, isComplete: true },
     });
 
     // Check if user has made a payment
@@ -1157,9 +1157,10 @@ export default class PropertyService {
       ],
       filter,
       [
-        { columnName: "units", tableName: "unit" },
-        { columnName: "propertyMedia", tableName: "propertyMedia" },
+        // { columnName: "units", tableName: "unit" },
+        // { columnName: "propertyMedia", tableName: "propertyMedia" },
       ],
+      false,
       false,
     );
 
@@ -1695,8 +1696,10 @@ export default class PropertyService {
   ];
   
 
-  public static async searchProperties(query: PropertySearchQueryDto) {
-  return await SearchService.search(
+
+
+public static async searchProperties(query: PropertySearchQueryDto): Promise<SearchResponse<PropertyEntity>> {
+  const result = await SearchService.search(
     {
       entity: PropertyEntity,
       tableName: 'property',
@@ -1704,11 +1707,22 @@ export default class PropertyService {
     this.searchPropertiesStruct,
     query,
     [
-      { columnName: 'units', tableName: 'unit' },
-      { columnName: 'propertyMedia', tableName: 'propertyMedia' },
-    ]
+      // { columnName: 'units', tableName: 'unit' },
+      // { columnName: 'propertyMedia', tableName: 'propertyMedia' },
+    ],
+    false,
+    true,
   );
+
+  // result.data = result.data.filter((property: PropertyEntity) =>
+  //   // property.units?.some((unit: PropertyUnitEntity) => unit.isPaid === false)
+  // );
+
+  return result;
 }
+
+
+
 
 
   public static async getLocations() { }
@@ -1963,47 +1977,138 @@ export default class PropertyService {
 
 
 
-  public static async getRentedUnits(userId: string) {
-    const payments = await this.paymentRepo
-      .createQueryBuilder("payment")
-      .innerJoinAndSelect("payment.unit", "unit")
-      .innerJoinAndSelect("unit.property", "property")
-      .leftJoinAndSelect("property.propertyMedia", "media")
-      .select([
-        "payment.createdAt",
-        "unit.label",
-        "unit.price",
-        "property.address",
-        "property.city",
-        "property.state",
-        "media.imageUrls",
-      ])
-      .where("payment.payer = :userId AND payment.status = :status", {
-        userId,
-        status: PaymentStatuses.CONFIRMED,
-      })
-      .orderBy("payment.createdAt", "DESC")
-      .getMany();
+  // public static async getRentedUnits(userId: string) {
+  //   const payments = await this.paymentRepo
+  //     .createQueryBuilder("payment")
+  //     .innerJoinAndSelect("payment.unit", "unit")
+  //     .innerJoinAndSelect("unit.property", "property")
+  //     .leftJoinAndSelect("property.propertyMedia", "media")
+  //     .select([
+  //       "payment.createdAt",
+  //       "unit.label",
+  //       "unit.price",
+  //       "property.address",
+  //       "property.city",
+  //       "property.state",
+  //       "media.imageUrls",
+  //     ])
+  //     .where("payment.payer = :userId AND payment.status = :status", {
+  //       userId,
+  //       status: PaymentStatuses.CONFIRMED,
+  //     })
+  //     .orderBy("payment.createdAt", "DESC")
+  //     .getMany();
 
-    const rentedUnits = payments.map((payment) => {
-      const unit = payment.unit;
-      const property = unit.property;
-      const media = property.propertyMedia;
+  //   const rentedUnits = payments.map((payment) => {
+  //     const unit = payment.unit;
+  //     const property = unit.property;
+  //     const media = property.propertyMedia;
+
+  //     return {
+  //       paymentDate: payment.createdAt,
+  //       dueDate: new Date(
+  //         new Date(payment.createdAt).setFullYear(payment.createdAt.getFullYear() + 1)
+  //       ),
+  //       propertyAddress: property.address,
+  //       propertyCity: property.city,
+  //       propertyState: property.state,
+  //       unitLabel: unit.label,
+  //       unitPrice: unit.price,
+  //       propertyImages: media?.imageUrls || [],
+  //     };
+  //   });
+
+  //   return rentedUnits;
+  // }
+
+public static async getRentedUnits(userId: string, query: SearchQuery<any>) {
+  if (!userId) {
+    Utility.throwException({
+      statusNo: 400,
+      message: "User ID is required to fetch rented units.",
+    });
+  }
+
+  // Build filter options
+  const filter: any = {
+    ...query,
+    userId, // tenant’s user ID
+  };
+
+  // Optional filter for completion
+  if (query.hasOwnProperty("isComplete")) {
+    filter.isComplete = query.isComplete === "true";
+  }
+
+  // ✅ Fetch all rental requests by this tenant, including propertyMedia
+  const rentRequests = await SearchService.search(
+    {
+      entity: RequestToRentEntity,
+      tableName: "request_to_rent",
+    },
+    [
+      { field: "isComplete" },
+      { field: "isApprove" },
+      { field: "applicationWithdrawn" },
+    ],
+    filter,
+    [
+      { columnName: "property", tableName: "property" },
+      { columnName: "unit", tableName: "unit" },
+      { columnName: "user", tableName: "user" },
+      { columnName: "property.propertyMedia", tableName: "propertyMedia" }, // ✅ nested join
+    ],
+    false,
+  );
+
+  // ✅ Map to desired output structure
+  const rentedUnits = rentRequests.data.map((request) => {
+      const property = request.property ?? ({} as PropertyEntity);
+      const propertyMedia = (property?.propertyMedia ?? ({} as PropertyMediaEntity)) as PropertyMediaEntity;
+      const rentedDate = request.leaseAgreementSignedAt || request.createdAt;
 
       return {
-        paymentDate: payment.createdAt,
-        dueDate: new Date(
-          new Date(payment.createdAt).setFullYear(payment.createdAt.getFullYear() + 1)
-        ),
+        rentedDate,
+        tenantName: `${request.firstName ?? ""} ${request.lastName ?? ""}`.trim(),
+        tenantEmail: request.email,
+        tenantPhone: request.phoneNumber,
+        propertyId: property.id,
         propertyAddress: property.address,
-        propertyCity: property.city,
+        isApproved: request.isApprove,
+        isComplete: request.isComplete,
         propertyState: property.state,
-        unitLabel: unit.label,
-        unitPrice: unit.price,
-        propertyImages: media?.imageUrls || [],
-      };
-    });
+        propertyArea: property.area,
+        propertyLga: property.lga,
+        propertyDescription: property.description,
+        propertyFloorNumber: property.floorNumber,
+        propertyIsComplete: property.isComplete,
 
-    return rentedUnits;
-  }
+        // ✅ Units
+        propertyUnits: Array.isArray(property.units)
+          ? property.units.map((u) => ({
+              unitLabel: u.label,
+              unitPrice: u.price,
+              unitIsPaid: u.isPaid,
+              unitNoOfBedrooms: u.noOfBedrooms,
+              unitNoOfBathrooms: u.noOfBathrooms,
+              unitNoOfBathroomsEnsuite: u.noOfBathroomsEnsuite
+            }))
+          : [],
+
+  // ✅ Property media
+      propertyMedia: {
+        images: propertyMedia.imageUrls ?? [],
+        videos: propertyMedia.videoUrls ?? [],
+        leaseDocumentUrl: propertyMedia.leaseDocumentUrl ?? null,
+        useLetBudTemplate: propertyMedia.useLetBudTemplate ?? false,
+      },
+    };
+  });
+
+  return {
+    ...rentRequests,
+    data: rentedUnits,
+  };
+}
+
 }
