@@ -255,11 +255,17 @@ const RequestToRentController = {
       // Assuming req.sender contains the authenticated landlord's details
       const landlordId = req.sender.id;
 
+      const landlordIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() 
+        || req.headers['x-real-ip']?.toString() 
+        || req.socket.remoteAddress 
+        || 'Unknown';
+
       const updatedRequest = await RequestToRentService.approveRequestToRent(
         requestToRentID,
         isApprove,
         landlordId,
-        moveInDate
+        moveInDate,
+        landlordIp
       );
 
       Utility.sendResponse(res, {

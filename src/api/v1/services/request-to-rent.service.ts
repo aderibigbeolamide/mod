@@ -331,7 +331,8 @@ export default class RequestToRentService {
     requestToRentId: string,
     _isApprove: boolean,
     landlordId: string,
-    moveInDate?: Date
+    moveInDate?: Date,
+    landlordIp?: string
   ): Promise<RequestToRentEntity> {
     const request = await this.repo.findOne({
       where: { id: requestToRentId, isComplete: true },
@@ -357,25 +358,23 @@ export default class RequestToRentService {
     }
 
     request.isApprove = _isApprove;
+
+    if (_isApprove) {
+      request.landlordSignedAt = new Date();
+      if (landlordIp) {
+        request.landlordSignedByIp = landlordIp;
+      }
+    }
+
     const updatedRequest = await this.repo.save(request);
 
-    // ✅ Send approval email to the applicant
-    await this.commService.sendPropertyApprovalEmail(
-      request.email,
-      request.firstName,
-      request.lastName,
-      request.moveInDate
-    );
-
-    // ✅ Automatically generate lease agreement if landlord uses LetBud template
-    try {
-      const useLetBudTemplate = request.property?.propertyMedia?.useLetBudTemplate;
-      if (useLetBudTemplate) {
-        console.log("Auto-generating LetBud lease agreement...");
-        await this.leaseAgreementService.generateLeaseAgreement(request.id);
-      }
-    } catch (err) {
-      console.error("Error auto-generating lease agreement:", err);
+    if (_isApprove) {
+      await this.commService.sendPropertyApprovalEmail(
+        request.email,
+        request.firstName,
+        request.lastName,
+        request.moveInDate
+      );
     }
 
     return updatedRequest;

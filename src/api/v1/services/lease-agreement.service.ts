@@ -56,6 +56,12 @@ interface LeaseAgreementData {
         currentAddress: string;
         moveInDate: string;
     };
+    signature?: {
+        landlordSignedAt?: string;
+        landlordSignedByIp?: string;
+        tenantSignedAt?: string;
+        tenantSignedByIp?: string;
+    };
 }
 
 export class LeaseAgreementService {
@@ -99,7 +105,8 @@ export class LeaseAgreementService {
     }
     private async prepareLeaseData(
         requestToRent: RequestToRentEntity,
-        lessorInfo: LessorInfoEntity
+        lessorInfo: LessorInfoEntity,
+        includeSignatures: boolean = false
     ): Promise<LeaseAgreementData> {
         // Normalize relations: some ORMs return relations as arrays depending on query shape,
         // so pick the first item when an array is encountered.
@@ -128,7 +135,7 @@ export class LeaseAgreementService {
             unit.id
         );
 
-        return {
+        const leaseData: LeaseAgreementData = {
             currentDate: formatDate(new Date()),
             property: {
                 address: property?.address || 'N/A',
@@ -141,7 +148,7 @@ export class LeaseAgreementService {
             },
             unit: {
                 label: unit?.label || 'N/A',
-                price: billing?.total || unit?.price || 0, // ✅ total from billing analytics
+                price: billing?.total || unit?.price || 0,
                 noOfBedrooms: unit?.noOfBedrooms || 0,
                 noOfBathrooms: unit?.noOfBathrooms || 0,
                 squareFeet: unit?.squareFeet || undefined,
@@ -168,6 +175,21 @@ export class LeaseAgreementService {
                 moveInDate: formatDate(requestToRent.moveInDate),
             },
         };
+
+        if (includeSignatures) {
+            leaseData.signature = {
+                landlordSignedAt: requestToRent.landlordSignedAt 
+                    ? formatDate(requestToRent.landlordSignedAt)
+                    : undefined,
+                landlordSignedByIp: requestToRent.landlordSignedByIp || undefined,
+                tenantSignedAt: requestToRent.leaseAgreementSignedAt
+                    ? formatDate(requestToRent.leaseAgreementSignedAt)
+                    : undefined,
+                tenantSignedByIp: requestToRent.tenantSignedByIp || undefined,
+            };
+        }
+
+        return leaseData;
 
     }
 
@@ -264,14 +286,63 @@ export class LeaseAgreementService {
         const pdfBuffer = await this.generateLeaseAgreement(requestToRentId);
         const s3Url = await this.saveLeaseAgreementToS3(requestToRentId, pdfBuffer);
 
-        // Update the request to rent entity with the lease agreement URL
         await dataSource.getRepository(RequestToRentEntity).update(
             { id: requestToRentId },
-            // cast to any to bypass strict partial type checks for columns not present in the entity type definition
             { leaseAgreementUrl: s3Url } as any
         );
 
         logger.info(`Lease agreement URL saved to database for request: ${requestToRentId}`);
+
+        return {
+            pdfBuffer,
+            s3Url,
+        };
+    }
+
+    async generateFinalSignedLeaseAgreement(requestToRentId: string): Promise<{
+        pdfBuffer: Buffer;
+        s3Url: string;
+    }> {
+        const requestToRent = await dataSource.getRepository(RequestToRentEntity).findOne({
+            where: { id: requestToRentId },
+            relations: ['property', 'unit', 'user', 'userDetails'],
+        });
+
+        if (!requestToRent) {
+            throw new Error('Request to rent not found');
+        }
+
+        if (!requestToRent.property || !requestToRent.unit) {
+            throw new Error('Property or unit information is missing');
+        }
+
+        const lessorInfo = await dataSource.getRepository(LessorInfoEntity).findOne({
+            where: { id: requestToRent.property.lessorInfoId },
+        });
+
+        if (!lessorInfo) {
+            throw new Error('Lessor information not found');
+        }
+
+        const data = await this.prepareLeaseData(requestToRent, lessorInfo, true);
+
+        const logoAbsolutePath = path.resolve(__dirname, '../../../../resources/uploads/letbudLogo.png');
+
+        const htmlContent = await this.compileTemplate({
+            ...data,
+            logoPath: `file://${logoAbsolutePath}`,
+        });
+
+        const pdfBuffer = await this.generatePDF(htmlContent);
+
+        const s3Url = await this.saveLeaseAgreementToS3(requestToRentId, pdfBuffer);
+
+        await dataSource.getRepository(RequestToRentEntity).update(
+            { id: requestToRentId },
+            { leaseAgreementUrl: s3Url } as any
+        );
+
+        logger.info(`Final signed lease agreement saved to S3 and database for request: ${requestToRentId}`);
 
         return {
             pdfBuffer,

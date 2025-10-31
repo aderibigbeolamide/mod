@@ -109,6 +109,11 @@ export class RequestToRentEntity extends BaseEntity implements IRequestToRent {
   @Column({ type: 'character varying', nullable: true })
   leaseAgreementUrl?: string;
 
+  @Column({ type: 'timestamp', nullable: true }) landlordSignedAt: Date;
+
+  @Column({ type: 'character varying', nullable: true }) landlordSignedByIp: string;
+
+  @Column({ type: 'character varying', nullable: true }) tenantSignedByIp: string;
 
   @Column({ type: "boolean", nullable: true, default: false }) applicationWithdrawn: boolean;
 

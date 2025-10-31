@@ -46,6 +46,30 @@ const LeaseAgreementRoute = Utility.swaggerRouteToAppRoute({
         contentType: "application/pdf",
       },
     },
+    {
+      route: `/sign/:requestToRentId`,
+      handler: LeaseAgreementController.signLeaseAgreement,
+      method: "post",
+      description: `Digitally sign the lease agreement and save final version to S3 with IP tracking`,
+      middleWares: [authenticateUser],
+      parameters: [
+        {
+          name: ":requestToRentId",
+          in: "path",
+          required: true,
+          description: "The ID of the request to rent application",
+        },
+      ],
+      sampleResponseData: {
+        status: "Success",
+        message: "Lease agreement signed successfully",
+        data: {
+          leaseAgreementUrl: "https://bucket.s3.region.amazonaws.com/path/to/lease.pdf",
+          signedAt: "2025-10-31T12:00:00.000Z",
+          signedFromIp: "192.168.1.1",
+        },
+      },
+    },
   ],
 });
 
