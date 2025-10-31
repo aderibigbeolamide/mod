@@ -10,21 +10,101 @@ Letbud is a backend API service built with Node.js, Express, and TypeORM. It pro
 - **API Version**: 1.0.0
 - **Documentation**: Available at `/api-docs` (Swagger UI)
 
-## Recent Changes (October 29, 2025)
+## Recent Changes
 
-### Implemented S3 Integration for Lease Agreements
+### October 31, 2025: Lease Agreement "Generate-on-Demand, Save-Once" Strategy
+
+Implemented a comprehensive lease agreement management system with signature tracking and optimized S3 storage.
+
+#### 🎯 Core Improvements
+
+**Problem Solved:** 
+- Previous implementation created a new PDF in S3 every time the lease was generated
+- Multiple tenants requesting to rent would generate multiple PDFs (wasted storage)
+- Only one tenant is approved, making other PDFs useless
+- No signature tracking or audit trail
+
+**Solution Implemented:**
+- **Generate-on-Demand**: PDFs are generated dynamically for previews without saving to S3
+- **Save-Once**: Only ONE final PDF is saved to S3 when tenant signs the lease
+- **Signature Tracking**: Complete audit trail with dates and IP addresses for both landlord and tenant
+
+#### 📋 Database Changes
+
+Added three new fields to `RequestToRentEntity`:
+- `landlordSignedAt` (timestamp) - When landlord approved the application
+- `landlordSignedByIp` (varchar) - IP address of landlord when they approved
+- `tenantSignedByIp` (varchar) - IP address of tenant when they signed
+
+#### 🔄 Complete Workflow
+
+1. **Property Creation** (Landlord)
+   - Landlord chooses to use LetBud template (`useLetBudTemplate = true`)
+   - NO PDF generated or saved yet
+
+2. **Tenant Requests to Rent**
+   - Tenant submits rental application
+   - Tenant data stored in `RequestToRentEntity`
+   - NO PDF generated or saved yet
+
+3. **Preview Lease Agreement** (Both Parties)
+   - Landlord/Tenant can preview via `/api/v1/lease-agreement/preview/:requestToRentId`
+   - PDF generated dynamically on-the-fly
+   - NOT saved to S3 (only returned as buffer)
+   - Can preview unlimited times at no storage cost
+
+4. **Landlord Approves Application**
+   - Landlord approves tenant via `/api/v1/request-to-rent/review/:requestToRentID?isApprove=true`
+   - System captures `landlordSignedAt` and `landlordSignedByIp`
+   - Approval email sent to tenant
+   - NO PDF saved to S3 yet
+
+5. **Tenant Signs Lease** (NEW ENDPOINT)
+   - Tenant signs via `/api/v1/lease-agreement/sign/:requestToRentId`
+   - System validates authorization (only tenant who made request can sign)
+   - Generates FINAL PDF with all signature information
+   - Saves to S3 as `{environment}/lease-agreements/lease-agreement-{requestId}-{timestamp}.pdf`
+   - Updates database with `leaseAgreementSigned = true`, `leaseAgreementSignedAt`, `tenantSignedByIp`, and `leaseAgreementUrl`
+   - **This is the ONLY place a PDF is saved to S3**
+
+#### 🔒 Security Features
+
+- **Authorization**: Only the tenant who made the request can sign their lease
+- **Transaction Safety**: PDF is generated and uploaded BEFORE database is updated (prevents data inconsistency)
+- **IP Tracking**: Both landlord and tenant IP addresses are recorded for audit trail
+- **Idempotency**: Cannot sign the same lease twice
+
+#### 📁 S3 Storage Optimization
+
+**Before:**
+- Multiple PDFs per property (one for each preview/generation)
+- Wasted storage for rejected applications
+- No clear final version
+
+**After:**
+- ONE PDF per approved rental (only when tenant signs)
+- Zero storage cost for previews and rejected applications
+- Clear final signed version in S3
+
+#### 🔧 Updated API Endpoints
+
+- `GET /api/v1/lease-agreement/preview/:requestToRentId` - Preview lease (no S3 save)
+- `GET /api/v1/lease-agreement/generate/:requestToRentId` - Generate lease (no S3 save)
+- `POST /api/v1/lease-agreement/sign/:requestToRentId` - Sign lease (saves to S3) ✨ NEW
+
+#### 📄 Lease Agreement Template
+
+Updated template now shows:
+- Landlord signature with date and IP address (when available)
+- Tenant signature with date and IP address (when available)
+- Blank signature lines for preview mode
+
+### October 29, 2025: S3 Integration for Lease Agreements
+
 1. **Added Database Field**: Added `leaseAgreementUrl` field to `RequestToRentEntity` to store the S3 URL of generated lease agreements
 2. **Implemented S3 Upload**: Completed the `saveLeaseAgreementToS3` method in `lease-agreement.service.ts` to upload generated PDFs directly to AWS S3
 3. **Updated Service Logic**: Modified `generateAndSaveLeaseAgreement` to save the S3 URL to the database after successful upload
-4. **Enabled Lease Agreement Routes**: Uncommented and enabled the LeaseAgreementRoute in `server.ts`
-5. **Updated Controller**: Fixed the controller to handle the new return type with `s3Url` instead of `filename`
-
-**How it works:**
-- When a property owner chooses to use the Letbud lease agreement (when `useLetBudTemplate = true` in PropertyMediaEntity)
-- The system generates a PDF from the Handlebars template using property, unit, lessor, and tenant data
-- The PDF is automatically uploaded to the S3 bucket at `{environment}/lease-agreements/lease-agreement-{requestId}-{timestamp}.pdf`
-- The S3 URL is saved to the `leaseAgreementUrl` field in the request-to-rent record
-- The PDF can be downloaded via `/api/v1/lease-agreement/generate/:requestToRentId` or previewed via `/api/v1/lease-agreement/preview/:requestToRentId`
+4. **Enabled Lease Agreement Routes**: Enabled the LeaseAgreementRoute in `server.ts`
 
 ### Fixed Server Startup Issues
 1. **Installed Missing Dependencies**: Ran `npm install` to install all required packages including `nodemon` and other devDependencies
