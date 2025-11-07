@@ -377,16 +377,29 @@ export default class RequestToRentService {
         request.moveInDate
       );
 
-      const leaseResult = await this.leaseAgreementService.generateFinalSignedLeaseAgreement(
-        requestToRentId
-      );
+      const propertyMedia = request.property.propertyMedia;
 
-      await this.repo.update(
-        { id: requestToRentId },
-        { leaseAgreementUrl: leaseResult.s3Url } as any
-      );
+      if (propertyMedia?.useLetBudTemplate) {
+        const leaseResult = await this.leaseAgreementService.generateFinalSignedLeaseAgreement(
+          requestToRentId
+        );
 
-      logger.info(`Lease agreement auto-generated for approved request: ${requestToRentId}`);
+        await this.repo.update(
+          { id: requestToRentId },
+          { leaseAgreementUrl: leaseResult.s3Url } as any
+        );
+
+        logger.info(`LetBud template lease agreement auto-generated for approved request: ${requestToRentId}`);
+      } else if (propertyMedia?.leaseDocumentUrl) {
+        await this.repo.update(
+          { id: requestToRentId },
+          { leaseAgreementUrl: propertyMedia.leaseDocumentUrl } as any
+        );
+
+        logger.info(`Landlord's uploaded lease document assigned to request: ${requestToRentId}`);
+      } else {
+        logger.warn(`No lease document available for request: ${requestToRentId}`);
+      }
     }
 
     return updatedRequest;

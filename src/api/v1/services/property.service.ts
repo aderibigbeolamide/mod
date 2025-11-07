@@ -870,6 +870,7 @@ export default class PropertyService {
         unit: { id: unitId },
         isApprove: true,
       },
+      relations: ['property', 'property.propertyMedia', 'property.lessorInfo'],
     });
 
     if (!request) {
@@ -895,15 +896,54 @@ export default class PropertyService {
     }
 
     try {
-      const leaseResult = await this.leaseAgreementService.generateFinalSignedLeaseAgreement(
-        request.id
-      );
+      const property = Array.isArray(request.property) ? request.property[0] : request.property;
+      const propertyMedia = property?.propertyMedia;
 
-      request.leaseAgreementUrl = leaseResult.s3Url;
+      if (propertyMedia?.useLetBudTemplate) {
+        const leaseResult = await this.leaseAgreementService.generateFinalSignedLeaseAgreement(
+          request.id
+        );
 
-      logger.info(`Lease agreement signed and regenerated with tenant signature for request: ${request.id}`);
+        request.leaseAgreementUrl = leaseResult.s3Url;
+
+        logger.info(`LetBud template lease agreement signed and regenerated with tenant signature for request: ${request.id}`);
+      } else {
+        const leaseDocumentUrl = request.leaseAgreementUrl || propertyMedia?.leaseDocumentUrl;
+
+        if (!leaseDocumentUrl) {
+          throw new Error('No lease document available to sign');
+        }
+
+        const landlordPdfBuffer = await this.leaseAgreementService.downloadPDFFromS3(leaseDocumentUrl);
+
+        const landlordName = `${property.lessorInfo?.firstName || ''} ${property.lessorInfo?.lastName || ''}`.trim();
+        const tenantName = `${request.firstName || ''} ${request.lastName || ''}`.trim();
+
+        const signaturePageBuffer = await this.leaseAgreementService.generateSignaturePage(
+          landlordName,
+          request.landlordSignedAt || new Date(),
+          request.landlordSignedByIp || 'Unknown',
+          tenantName,
+          signedAt,
+          clientIp || 'Unknown'
+        );
+
+        const mergedPdfBuffer = await this.leaseAgreementService.mergePDFs(
+          landlordPdfBuffer,
+          signaturePageBuffer
+        );
+
+        const s3Url = await this.leaseAgreementService.saveLeaseAgreementToS3(
+          request.id,
+          mergedPdfBuffer
+        );
+
+        request.leaseAgreementUrl = s3Url;
+
+        logger.info(`Landlord's lease document merged with signature page for request: ${request.id}`);
+      }
     } catch (error) {
-      logger.error(`Failed to regenerate lease agreement with tenant signature for request ${request.id}:`, error);
+      logger.error(`Failed to process lease agreement signing for request ${request.id}:`, error);
       throw error;
     }
 
