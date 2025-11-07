@@ -12,6 +12,72 @@ Letbud is a backend API service built with Node.js, Express, and TypeORM. It pro
 
 ## Recent Changes
 
+### November 7, 2025: Lease Agreement Refactoring
+
+Refactored lease agreement functionality to consolidate all operations through property and request-to-rent endpoints, eliminating separate lease agreement controller and routes.
+
+#### 🎯 Key Changes
+
+**Architecture Simplification:**
+- Removed dedicated `lease-agreement.controller.ts` and `lease-agreement.route.ts`
+- All lease agreement operations now accessible through existing property and request-to-rent endpoints
+- Centralized lease logic in `LeaseAgreementService` used by `PropertyService` and `RequestToRentService`
+
+**Dual Document Type Support:**
+- **Landlord-Uploaded Documents**: When landlord uploads their own lease document (`useLetBudTemplate = false`), system respects and uses that document
+- **LetBud Template**: When landlord chooses LetBud template (`useLetBudTemplate = true`), system generates comprehensive lease agreement
+
+**PDF Manipulation:**
+- Added `pdf-lib` package for PDF merging capabilities
+- New `generateSignaturePage()` method creates signature page with landlord and tenant details
+- New `mergePDFs()` method combines landlord-uploaded documents with signature pages
+- New `downloadPDFFromS3()` helper to retrieve existing PDFs from S3
+
+**Enhanced Signature Handling:**
+- Signature page includes both landlord and tenant information:
+  - Landlord: Name (from LessorInfo), Signed Date (landlordSignedAt), IP Address (landlordSignedByIp)
+  - Tenant: Name (from RequestToRent), Signed Date (leaseAgreementSignedAt), IP Address (tenantSignedByIp)
+- For LetBud templates: Signatures embedded in the generated PDF
+- For uploaded documents: Signature page appended to landlord's original document
+
+#### 🔄 Updated Workflow
+
+1. **Property Creation** (Landlord)
+   - Landlord either uploads their own lease document OR chooses to use LetBud template
+   - `PropertyMedia.useLetBudTemplate` flag set accordingly
+   - `PropertyMedia.leaseDocumentUrl` contains URL if landlord uploaded their own document
+
+2. **Tenant Requests to Rent**
+   - Tenant submits rental application
+   - Tenant data stored in `RequestToRentEntity`
+   - No lease PDF generated yet
+
+3. **Landlord Approves Application**
+   - Landlord approves tenant via `PUT /api/v1/request-to-rent/review/:requestToRentID?isApprove=true`
+   - System captures `landlordSignedAt` and `landlordSignedByIp`
+   - If `useLetBudTemplate = true`: Generates LetBud template PDF and saves to S3
+   - If `useLetBudTemplate = false`: Retains landlord's uploaded document URL
+   - Approval email sent to tenant
+
+4. **Tenant Signs Lease**
+   - Tenant signs via `POST /api/v1/property/signLeaseAgreement` with `{ unitId }`
+   - System validates authorization (only tenant who made request can sign)
+   - If `useLetBudTemplate = true`: Regenerates LetBud template with signature section included
+   - If `useLetBudTemplate = false`: Downloads landlord's PDF, generates signature page, merges both PDFs, uploads combined PDF to S3
+   - Updates database with `leaseAgreementSigned = true`, `leaseAgreementSignedAt`, `tenantSignedByIp`, and final `leaseAgreementUrl`
+
+#### 📋 API Endpoints
+
+All lease agreement functionality now accessible through existing endpoints:
+
+- `POST /api/v1/property/finalize/:propertyID` - Finalize property creation with lease document upload or template selection
+- `PUT /api/v1/request-to-rent/review/:requestToRentID` - Approve rental request (captures landlord signature)
+- `POST /api/v1/property/signLeaseAgreement` - Tenant signs lease agreement (captures tenant signature)
+
+#### 📦 New Dependencies
+
+- `pdf-lib` - For PDF manipulation and merging capabilities
+
 ### October 31, 2025: Lease Agreement "Generate-on-Demand, Save-Once" Strategy
 
 Implemented a comprehensive lease agreement management system with signature tracking and optimized S3 storage.
@@ -31,80 +97,17 @@ Implemented a comprehensive lease agreement management system with signature tra
 
 #### 📋 Database Changes
 
-Added three new fields to `RequestToRentEntity`:
+Added signature tracking fields to `RequestToRentEntity`:
 - `landlordSignedAt` (timestamp) - When landlord approved the application
 - `landlordSignedByIp` (varchar) - IP address of landlord when they approved
 - `tenantSignedByIp` (varchar) - IP address of tenant when they signed
-
-#### 🔄 Complete Workflow
-
-1. **Property Creation** (Landlord)
-   - Landlord chooses to use LetBud template (`useLetBudTemplate = true`)
-   - NO PDF generated or saved yet
-
-2. **Tenant Requests to Rent**
-   - Tenant submits rental application
-   - Tenant data stored in `RequestToRentEntity`
-   - NO PDF generated or saved yet
-
-3. **Preview Lease Agreement** (Both Parties)
-   - Landlord/Tenant can preview via `/api/v1/lease-agreement/preview/:requestToRentId`
-   - PDF generated dynamically on-the-fly
-   - NOT saved to S3 (only returned as buffer)
-   - Can preview unlimited times at no storage cost
-
-4. **Landlord Approves Application**
-   - Landlord approves tenant via `/api/v1/request-to-rent/review/:requestToRentID?isApprove=true`
-   - System captures `landlordSignedAt` and `landlordSignedByIp`
-   - Approval email sent to tenant
-   - NO PDF saved to S3 yet
-
-5. **Tenant Signs Lease** (NEW ENDPOINT)
-   - Tenant signs via `/api/v1/lease-agreement/sign/:requestToRentId`
-   - System validates authorization (only tenant who made request can sign)
-   - Generates FINAL PDF with all signature information
-   - Saves to S3 as `{environment}/lease-agreements/lease-agreement-{requestId}-{timestamp}.pdf`
-   - Updates database with `leaseAgreementSigned = true`, `leaseAgreementSignedAt`, `tenantSignedByIp`, and `leaseAgreementUrl`
-   - **This is the ONLY place a PDF is saved to S3**
-
-#### 🔒 Security Features
-
-- **Authorization**: Only the tenant who made the request can sign their lease
-- **Transaction Safety**: PDF is generated and uploaded BEFORE database is updated (prevents data inconsistency)
-- **IP Tracking**: Both landlord and tenant IP addresses are recorded for audit trail
-- **Idempotency**: Cannot sign the same lease twice
-
-#### 📁 S3 Storage Optimization
-
-**Before:**
-- Multiple PDFs per property (one for each preview/generation)
-- Wasted storage for rejected applications
-- No clear final version
-
-**After:**
-- ONE PDF per approved rental (only when tenant signs)
-- Zero storage cost for previews and rejected applications
-- Clear final signed version in S3
-
-#### 🔧 Updated API Endpoints
-
-- `GET /api/v1/lease-agreement/preview/:requestToRentId` - Preview lease (no S3 save)
-- `GET /api/v1/lease-agreement/generate/:requestToRentId` - Generate lease (no S3 save)
-- `POST /api/v1/lease-agreement/sign/:requestToRentId` - Sign lease (saves to S3) ✨ NEW
-
-#### 📄 Lease Agreement Template
-
-Updated template now shows:
-- Landlord signature with date and IP address (when available)
-- Tenant signature with date and IP address (when available)
-- Blank signature lines for preview mode
+- `leaseAgreementUrl` (varchar) - S3 URL of final signed lease agreement
 
 ### October 29, 2025: S3 Integration for Lease Agreements
 
 1. **Added Database Field**: Added `leaseAgreementUrl` field to `RequestToRentEntity` to store the S3 URL of generated lease agreements
 2. **Implemented S3 Upload**: Completed the `saveLeaseAgreementToS3` method in `lease-agreement.service.ts` to upload generated PDFs directly to AWS S3
 3. **Updated Service Logic**: Modified `generateAndSaveLeaseAgreement` to save the S3 URL to the database after successful upload
-4. **Enabled Lease Agreement Routes**: Enabled the LeaseAgreementRoute in `server.ts`
 
 ### Fixed Server Startup Issues
 1. **Installed Missing Dependencies**: Ran `npm install` to install all required packages including `nodemon` and other devDependencies
@@ -130,14 +133,16 @@ Updated template now shows:
 - **Email**: Nodemailer
 - **SMS**: Twilio
 - **Logging**: Winston with daily rotate file
+- **PDF Generation**: Puppeteer (for HTML to PDF conversion)
+- **PDF Manipulation**: pdf-lib (for PDF merging and signature page appending)
 
 ### API Endpoints
 The API is organized under `/api/v1/` with the following main routes:
 - **Auth**: User authentication (sign-in, sign-up, password reset)
 - **OTP**: One-time password management
-- **Properties**: Property listings and management
+- **Properties**: Property listings and management (includes lease agreement signing)
 - **Lessors**: Property owner management
-- **Request to Rent**: Rental application management
+- **Request to Rent**: Rental application management (includes approval with landlord signature)
 - **Wishlist**: User property favorites
 - **Waitlist**: User waitlist management
 - **Contact Requests**: Contact form submissions
@@ -152,6 +157,15 @@ The API is organized under `/api/v1/` with the following main routes:
 - **Request Call**: Call request management
 - **Listed Elsewhere**: External listing management
 
+### Lease Agreement Flow
+1. **Property Posting**: Landlord uploads their own lease document or chooses LetBud template
+2. **Request to Rent**: Tenant submits application for specific unit
+3. **Approval**: Landlord approves request (captures landlord signature: name, date, IP)
+4. **Signing**: Tenant signs lease (captures tenant signature: name, date, IP)
+5. **Final Document**: 
+   - LetBud template: Generated PDF with embedded signatures
+   - Uploaded document: Original document + appended signature page
+
 ## Environment Variables
 The following environment variables are configured:
 - `DATABASE_URL`: PostgreSQL connection string
@@ -162,6 +176,10 @@ The following environment variables are configured:
 - `PGDATABASE`: PostgreSQL database name
 - `PORT`: Server port (5000)
 - `NODE_ENV`: Environment mode (development)
+- `AWS_REGION`: AWS S3 region
+- `AWS_ACCESS_KEY_ID`: AWS access key for S3
+- `AWS_SECRET_ACCESS_KEY`: AWS secret key for S3
+- `S3_PUBLIC_BUCKET`: S3 bucket name for public assets
 
 ## Development
 
@@ -191,3 +209,5 @@ npm start
 - Logging is configured with daily rotation, storing logs in `/logs/debug/` and `/logs/error/`
 - TypeORM migrations run automatically on server startup
 - Scheduler runs hourly for request call batch processing
+- Lease agreements are stored in S3 under `{environment}/lease-agreements/` directory
+- Signature tracking provides complete audit trail for legal compliance
