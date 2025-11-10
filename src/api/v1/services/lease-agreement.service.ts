@@ -617,4 +617,129 @@ export class LeaseAgreementService {
             throw new Error('Failed to generate property lease template');
         }
     }
+
+    async generateStaticLeaseTemplate(forceRegenerate: boolean = false): Promise<string> {
+        try {
+            if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+                throw new Error('AWS credentials are not configured. Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables.');
+            }
+            if (!process.env.AWS_REGION) {
+                throw new Error('AWS_REGION environment variable is not configured.');
+            }
+            if (!process.env.S3_PUBLIC_BUCKET) {
+                throw new Error('S3_PUBLIC_BUCKET environment variable is not configured.');
+            }
+
+            const staticS3Key = `${process.env.NODE_ENV}/lease-agreements/letbud-static-template.pdf`;
+            const bucketName = process.env.S3_PUBLIC_BUCKET;
+            const staticTemplateUrl = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${staticS3Key}`;
+
+            if (!forceRegenerate) {
+                try {
+                    const s3 = new S3Client({
+                        region: process.env.AWS_REGION,
+                        credentials: {
+                            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+                            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+                        },
+                    });
+
+                    const command = new GetObjectCommand({
+                        Bucket: bucketName,
+                        Key: staticS3Key,
+                    });
+
+                    await s3.send(command);
+                    logger.info(`Static lease template already exists in S3: ${staticTemplateUrl}`);
+                    return staticTemplateUrl;
+                } catch (error: any) {
+                    const isNotFound = error.name === 'NoSuchKey' || error.$metadata?.httpStatusCode === 404;
+                    if (!isNotFound) {
+                        logger.warn(`Error checking for existing template: ${error.message}`);
+                    } else {
+                        logger.info('Static template does not exist, generating new one...');
+                    }
+                }
+            } else {
+                logger.info('Force regeneration requested, creating new static template...');
+            }
+
+            const formatDate = (date: Date | string): string => {
+                const d = new Date(date);
+                return d.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                });
+            };
+
+            const templateData: LeaseAgreementData = {
+                currentDate: formatDate(new Date()),
+                property: {
+                    address: '[Property Address]',
+                    city: '[City]',
+                    state: '[State]',
+                    type: 'Residential',
+                    leaseTerm: '12 months',
+                    leasePolicy: {
+                        smokingAllowed: false,
+                        petsAllowed: false,
+                        maxOccupants: 2,
+                    },
+                    utilities: {
+                        electricity: 'Tenant Responsibility',
+                        water: 'Landlord Responsibility',
+                        gas: 'Tenant Responsibility',
+                        internet: 'Tenant Responsibility',
+                    },
+                },
+                unit: {
+                    label: '[Unit Number]',
+                    price: 0,
+                    noOfBedrooms: 1,
+                    noOfBathrooms: 1,
+                    squareFeet: undefined,
+                    dateAvailable: formatDate(new Date()),
+                    paymentSchedule: 'MONTHLY',
+                    hasAgencyFee: false,
+                    agencyFeePercentage: undefined,
+                    fixedAgencyFee: undefined,
+                },
+                lessor: {
+                    firstName: '[Landlord First Name]',
+                    lastName: '[Landlord Last Name]',
+                    phoneNumber: '[Phone Number]',
+                    email: '[Email Address]',
+                    agencyName: undefined,
+                },
+                tenant: {
+                    firstName: '[Tenant First Name]',
+                    middleName: undefined,
+                    lastName: '[Tenant Last Name]',
+                    phoneNumber: '[Tenant Phone]',
+                    email: '[Tenant Email]',
+                    currentAddress: '[Tenant Current Address]',
+                    moveInDate: formatDate(new Date()),
+                },
+            };
+
+            const logoAbsolutePath = path.resolve(__dirname, '../../../../resources/uploads/letbudLogo.png');
+
+            const htmlContent = await this.compileTemplate({
+                ...templateData,
+                logoPath: `file://${logoAbsolutePath}`,
+            });
+
+            const pdfBuffer = await this.generatePDF(htmlContent);
+
+            const s3Url = await this.saveToS3(pdfBuffer, staticS3Key);
+
+            logger.info(`Static lease template generated and uploaded to S3: ${s3Url}`);
+
+            return s3Url;
+        } catch (error) {
+            logger.error('Error generating static lease template:', error);
+            throw new Error('Failed to generate static lease template');
+        }
+    }
 }
