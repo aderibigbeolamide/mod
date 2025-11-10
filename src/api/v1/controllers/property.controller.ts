@@ -316,6 +316,24 @@ const PropertyController = {
     }
   },
 
+  generateLeasePreview: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const propertyID = req.params.propertyID;
+      if (!propertyID)
+        Utility.throwException({
+          statusNo: 400,
+          message: "Property ID is required",
+          errorCode: EErrorCode.ERROR_CODE_400,
+        });
+      Utility.sendResponse(res, {
+        data: await PropertyService.generateLeasePreview(propertyID),
+        message: "Lease preview generated successfully",
+      });
+    } catch (error) {
+      Utility.returnError(res, error);
+    }
+  },
+
   getUnitStatus: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { userId, unitId } = req.params;
