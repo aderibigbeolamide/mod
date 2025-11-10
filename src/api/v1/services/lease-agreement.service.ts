@@ -66,7 +66,18 @@ interface LeaseAgreementData {
 }
 
 export class LeaseAgreementService {
-    private templatePath = path.join(__dirname, '../templates/lease-agreement.hbs');
+    private async getTemplatePath(): Promise<string> {
+        const distTemplatePath = path.join(__dirname, '../templates/lease-agreement.hbs');
+        const srcTemplatePath = path.join(__dirname, '../../../../src/api/v1/templates/lease-agreement.hbs');
+        
+        try {
+            await fs.access(distTemplatePath);
+            return distTemplatePath;
+        } catch {
+            logger.warn(`Template not found in dist, falling back to source: ${srcTemplatePath}`);
+            return srcTemplatePath;
+        }
+    }
 
     public async generateLeaseAgreement(requestToRentId: string): Promise<Buffer> {
         const requestToRent = await dataSource.getRepository(RequestToRentEntity).findOne({
@@ -195,7 +206,8 @@ export class LeaseAgreementService {
     }
 
     private async compileTemplate(data: LeaseAgreementData): Promise<string> {
-        const templateContent = await fs.readFile(this.templatePath, 'utf-8');
+        const templatePath = await this.getTemplatePath();
+        const templateContent = await fs.readFile(templatePath, 'utf-8');
 
         const template = handlebars.compile(templateContent);
 
@@ -494,6 +506,122 @@ export class LeaseAgreementService {
         } catch (error) {
             logger.error('Error downloading PDF from S3:', error);
             throw new Error('Failed to download PDF from S3');
+        }
+    }
+
+    async generatePreviewLeaseDocument(propertyId: string): Promise<string> {
+        try {
+            const property = await dataSource.getRepository(PropertyEntity).findOne({
+                where: { id: propertyId },
+                relations: ['units'],
+            });
+
+            if (!property) {
+                throw new Error('Property not found');
+            }
+
+            const unit = property.units?.[0];
+            if (!unit) {
+                throw new Error('Property has no units');
+            }
+
+            const lessorInfo = await dataSource.getRepository(LessorInfoEntity).findOne({
+                where: { id: property.lessorInfoId },
+            });
+
+            const formatDate = (date: Date | string): string => {
+                const d = new Date(date);
+                return d.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                });
+            };
+
+            const billing = await PropertyService.generateBillingAnalytics(property.id, unit.id);
+
+            const previewData: LeaseAgreementData = {
+                currentDate: formatDate(new Date()),
+                property: {
+                    address: property.address || 'Sample Address',
+                    city: property.city || 'Sample City',
+                    state: property.state || 'Sample State',
+                    type: property.type || 'Residential',
+                    leaseTerm: property.leaseTerm || '12 months',
+                    leasePolicy: property.leasePolicy || {},
+                    utilities: property.utilities || null,
+                },
+                unit: {
+                    label: unit.label || 'Unit 1',
+                    price: billing?.total || unit.price || 0,
+                    noOfBedrooms: unit.noOfBedrooms || 1,
+                    noOfBathrooms: unit.noOfBathrooms || 1,
+                    squareFeet: unit.squareFeet || undefined,
+                    dateAvailable: formatDate(unit.dateAvailable || new Date()),
+                    paymentSchedule: unit.paymentSchedule || 'MONTHLY',
+                    hasAgencyFee: unit.hasAgencyFee || false,
+                    agencyFeePercentage: unit.agencyFeePercentage || undefined,
+                    fixedAgencyFee: unit.fixedAgencyFee || undefined,
+                },
+                lessor: {
+                    firstName: lessorInfo?.firstName || 'Landlord',
+                    lastName: lessorInfo?.lastName || 'Name',
+                    phoneNumber: lessorInfo?.phoneNumber || '(555) 000-0000',
+                    email: lessorInfo?.email || 'landlord@example.com',
+                    agencyName: lessorInfo?.agencyName || undefined,
+                },
+                tenant: {
+                    firstName: 'Tenant',
+                    middleName: undefined,
+                    lastName: 'Name',
+                    phoneNumber: '(555) 000-0000',
+                    email: 'tenant@example.com',
+                    currentAddress: 'Current Address',
+                    moveInDate: formatDate(new Date()),
+                },
+            };
+
+            const logoAbsolutePath = path.resolve(__dirname, '../../../../resources/uploads/letbudLogo.png');
+
+            const htmlContent = await this.compileTemplate({
+                ...previewData,
+                logoPath: `file://${logoAbsolutePath}`,
+            });
+
+            const pdfBuffer = await this.generatePDF(htmlContent);
+
+            const filename = `lease-preview-${propertyId}-${Date.now()}.pdf`;
+            const uploadKey = `${process.env.NODE_ENV}/lease-previews/${filename}`;
+
+            const s3 = new S3Client({
+                region: process.env.AWS_REGION,
+                credentials: {
+                    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+                    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+                },
+            });
+
+            const bucketName = process.env.S3_PUBLIC_BUCKET;
+
+            const params = {
+                Bucket: bucketName,
+                Key: uploadKey,
+                Body: pdfBuffer,
+                ContentType: 'application/pdf',
+                ContentDisposition: 'inline',
+            };
+
+            const command = new PutObjectCommand(params);
+            await s3.send(command);
+
+            const s3Url = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${uploadKey}`;
+
+            logger.info(`Preview lease document uploaded successfully to S3: ${s3Url}`);
+
+            return s3Url;
+        } catch (error) {
+            logger.error('Error generating preview lease document:', error);
+            throw new Error('Failed to generate preview lease document');
         }
     }
 }

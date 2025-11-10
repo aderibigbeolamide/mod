@@ -615,10 +615,18 @@ export default class PropertyService {
       propertyMedia.leaseDocumentName = leaseDocument.mediaFileName;
       propertyMedia.useLetBudTemplate = false;
     } else {
-      // no lease document uploaded, assume LetBud template
-      propertyMedia.leaseDocumentUrl = null;
-      propertyMedia.leaseDocumentName = null;
+      // no lease document uploaded, use LetBud template and generate preview
       propertyMedia.useLetBudTemplate = true;
+      propertyMedia.leaseDocumentName = 'LetBud Lease Agreement Template';
+      
+      try {
+        const previewUrl = await this.leaseAgreementService.generatePreviewLeaseDocument(id);
+        propertyMedia.leaseDocumentUrl = previewUrl;
+        logger.info(`Preview lease document generated for property: ${id}`);
+      } catch (error) {
+        logger.error(`Failed to generate preview lease document for property ${id}: ${error.message}`);
+        propertyMedia.leaseDocumentUrl = null;
+      }
     }
 
     await this.propertyMediaRepo.save(propertyMedia);
