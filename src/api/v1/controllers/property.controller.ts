@@ -997,6 +997,26 @@ const PropertyController = {
       Utility.returnError(res, error);
     }
   },
+
+  generateLeaseTemplate: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const propertyID = req.params.propertyID;
+      if (!propertyID) {
+        Utility.throwException({
+          statusNo: 400,
+          message: "Property ID is required",
+          errorCode: EErrorCode.ERROR_CODE_400,
+        });
+      }
+
+      Utility.sendResponse(res, {
+        data: await PropertyService.generateLeaseTemplate(propertyID),
+        message: "Lease template generated successfully",
+      });
+    } catch (error) {
+      Utility.returnError(res, error);
+    }
+  },
 };
 
 export const propertyProps = {

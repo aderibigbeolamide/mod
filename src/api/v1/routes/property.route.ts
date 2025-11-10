@@ -277,6 +277,19 @@ const PropertyRoute = Utility.swaggerRouteToAppRoute({
     },
 
     {
+      route: `/:propertyID/generate-lease-template`,
+      handler: PropertyController.generateLeaseTemplate,
+      method: "post",
+      middleWares: [authenticateLessor],
+      description: `Generate or update the LetBud lease template for this property. Returns the S3 URL of the generated lease document.`,
+      parameters: [{ name: ":propertyID", in: "path", required: true }],
+      sampleResponseData: Utility.responseFormatter({
+        leaseDocumentUrl: "https://bucket.s3.region.amazonaws.com/development/lease-agreements/property-{id}.pdf",
+        useLetBudTemplate: true
+      }, "Lease template generated successfully"),
+    },
+
+    {
       route: `/:userId/getPropertyByUserId`,
       handler: PropertyController.getPropertyByUserId,
       method: "get",

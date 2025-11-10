@@ -66,6 +66,14 @@ interface LeaseAgreementData {
 }
 
 export class LeaseAgreementService {
+    private buildLeaseS3Key(propertyId: string, suffix: string = ''): string {
+        const basePath = `${process.env.NODE_ENV}/lease-agreements`;
+        if (suffix) {
+            return `${basePath}/property-${propertyId}-${suffix}.pdf`;
+        }
+        return `${basePath}/property-${propertyId}.pdf`;
+    }
+
     private async getTemplatePath(): Promise<string> {
         const distTemplatePath = path.join(__dirname, '../templates/lease-agreement.hbs');
         const srcTemplatePath = path.join(__dirname, '../../../../src/api/v1/templates/lease-agreement.hbs');
@@ -252,14 +260,8 @@ export class LeaseAgreementService {
         }
     }
 
-    async saveLeaseAgreementToS3(
-        requestToRentId: string,
-        pdfBuffer: Buffer
-    ): Promise<string> {
+    async saveToS3(pdfBuffer: Buffer, s3Key: string): Promise<string> {
         try {
-            const filename = `lease-agreement-${requestToRentId}-${Date.now()}.pdf`;
-            const uploadKey = `${process.env.NODE_ENV}/lease-agreements/${filename}`;
-
             const s3 = new S3Client({
                 region: process.env.AWS_REGION,
                 credentials: {
@@ -272,7 +274,7 @@ export class LeaseAgreementService {
 
             const params = {
                 Bucket: bucketName,
-                Key: uploadKey,
+                Key: s3Key,
                 Body: pdfBuffer,
                 ContentType: 'application/pdf',
                 ContentDisposition: 'inline',
@@ -281,7 +283,7 @@ export class LeaseAgreementService {
             const command = new PutObjectCommand(params);
             await s3.send(command);
 
-            const s3Url = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${uploadKey}`;
+            const s3Url = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
 
             logger.info(`Lease agreement uploaded successfully to S3: ${s3Url}`);
 
@@ -290,6 +292,15 @@ export class LeaseAgreementService {
             logger.error('Error uploading lease agreement to S3:', error);
             throw new Error('Failed to upload lease agreement to S3');
         }
+    }
+
+    async saveLeaseAgreementToS3(
+        requestToRentId: string,
+        pdfBuffer: Buffer
+    ): Promise<string> {
+        const filename = `lease-agreement-${requestToRentId}-${Date.now()}.pdf`;
+        const uploadKey = `${process.env.NODE_ENV}/lease-agreements/${filename}`;
+        return this.saveToS3(pdfBuffer, uploadKey);
     }
 
     async generateAndSaveLeaseAgreement(requestToRentId: string): Promise<{
@@ -510,6 +521,11 @@ export class LeaseAgreementService {
     }
 
     async generatePreviewLeaseDocument(propertyId: string): Promise<string> {
+        logger.warn('generatePreviewLeaseDocument is deprecated, use generatePropertyLeaseTemplate instead');
+        return this.generatePropertyLeaseTemplate(propertyId);
+    }
+
+    async generatePropertyLeaseTemplate(propertyId: string): Promise<string> {
         try {
             const property = await dataSource.getRepository(PropertyEntity).findOne({
                 where: { id: propertyId },
@@ -540,12 +556,12 @@ export class LeaseAgreementService {
 
             const billing = await PropertyService.generateBillingAnalytics(property.id, unit.id);
 
-            const previewData: LeaseAgreementData = {
+            const templateData: LeaseAgreementData = {
                 currentDate: formatDate(new Date()),
                 property: {
-                    address: property.address || 'Sample Address',
-                    city: property.city || 'Sample City',
-                    state: property.state || 'Sample State',
+                    address: property.address || 'Property Address',
+                    city: property.city || 'City',
+                    state: property.state || 'State',
                     type: property.type || 'Residential',
                     leaseTerm: property.leaseTerm || '12 months',
                     leasePolicy: property.leasePolicy || {},
@@ -566,62 +582,39 @@ export class LeaseAgreementService {
                 lessor: {
                     firstName: lessorInfo?.firstName || 'Landlord',
                     lastName: lessorInfo?.lastName || 'Name',
-                    phoneNumber: lessorInfo?.phoneNumber || '(555) 000-0000',
+                    phoneNumber: lessorInfo?.phoneNumber || '(000) 000-0000',
                     email: lessorInfo?.email || 'landlord@example.com',
                     agencyName: lessorInfo?.agencyName || undefined,
                 },
                 tenant: {
-                    firstName: 'Tenant',
+                    firstName: '[Tenant Name]',
                     middleName: undefined,
-                    lastName: 'Name',
-                    phoneNumber: '(555) 000-0000',
+                    lastName: '',
+                    phoneNumber: '(000) 000-0000',
                     email: 'tenant@example.com',
-                    currentAddress: 'Current Address',
-                    moveInDate: formatDate(new Date()),
+                    currentAddress: '[Tenant Address]',
+                    moveInDate: formatDate(unit.dateAvailable || new Date()),
                 },
             };
 
             const logoAbsolutePath = path.resolve(__dirname, '../../../../resources/uploads/letbudLogo.png');
 
             const htmlContent = await this.compileTemplate({
-                ...previewData,
+                ...templateData,
                 logoPath: `file://${logoAbsolutePath}`,
             });
 
             const pdfBuffer = await this.generatePDF(htmlContent);
 
-            const filename = `lease-preview-${propertyId}-${Date.now()}.pdf`;
-            const uploadKey = `${process.env.NODE_ENV}/lease-previews/${filename}`;
+            const s3Key = this.buildLeaseS3Key(propertyId);
+            const s3Url = await this.saveToS3(pdfBuffer, s3Key);
 
-            const s3 = new S3Client({
-                region: process.env.AWS_REGION,
-                credentials: {
-                    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-                    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-                },
-            });
-
-            const bucketName = process.env.S3_PUBLIC_BUCKET;
-
-            const params = {
-                Bucket: bucketName,
-                Key: uploadKey,
-                Body: pdfBuffer,
-                ContentType: 'application/pdf',
-                ContentDisposition: 'inline',
-            };
-
-            const command = new PutObjectCommand(params);
-            await s3.send(command);
-
-            const s3Url = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${uploadKey}`;
-
-            logger.info(`Preview lease document uploaded successfully to S3: ${s3Url}`);
+            logger.info(`Property lease template uploaded successfully to S3: ${s3Url}`);
 
             return s3Url;
         } catch (error) {
-            logger.error('Error generating preview lease document:', error);
-            throw new Error('Failed to generate preview lease document');
+            logger.error('Error generating property lease template:', error);
+            throw new Error('Failed to generate property lease template');
         }
     }
 }

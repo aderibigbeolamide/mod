@@ -615,16 +615,16 @@ export default class PropertyService {
       propertyMedia.leaseDocumentName = leaseDocument.mediaFileName;
       propertyMedia.useLetBudTemplate = false;
     } else {
-      // no lease document uploaded, use LetBud template and generate preview
+      // no lease document uploaded, use LetBud template and generate with property details
       propertyMedia.useLetBudTemplate = true;
       propertyMedia.leaseDocumentName = 'LetBud Lease Agreement Template';
       
       try {
-        const previewUrl = await this.leaseAgreementService.generatePreviewLeaseDocument(id);
-        propertyMedia.leaseDocumentUrl = previewUrl;
-        logger.info(`Preview lease document generated for property: ${id}`);
+        const templateUrl = await this.leaseAgreementService.generatePropertyLeaseTemplate(id);
+        propertyMedia.leaseDocumentUrl = templateUrl;
+        logger.info(`Property lease template generated for property: ${id}`);
       } catch (error) {
-        logger.error(`Failed to generate preview lease document for property ${id}: ${error.message}`);
+        logger.error(`Failed to generate lease template for property ${id}: ${error.message}`);
         propertyMedia.leaseDocumentUrl = null;
       }
     }
@@ -643,6 +643,40 @@ export default class PropertyService {
     }
 
     return this.getByID(id);
+  }
+
+  public static async generateLeaseTemplate(id: string) {
+    if (!(await this.verifyID(id)))
+      Utility.throwException({
+        statusNo: 400,
+        message: `Property ID ${id} does not exist`,
+      });
+
+    try {
+      const templateUrl = await this.leaseAgreementService.generatePropertyLeaseTemplate(id);
+      
+      const property = await this.repo.findOne({
+        where: { id },
+        relations: ['propertyMedia'],
+      });
+
+      if (property?.propertyMedia) {
+        property.propertyMedia.leaseDocumentUrl = templateUrl;
+        property.propertyMedia.useLetBudTemplate = true;
+        property.propertyMedia.leaseDocumentName = 'LetBud Lease Agreement Template';
+        await this.propertyMediaRepo.save(property.propertyMedia);
+      }
+
+      logger.info(`Lease template generated and updated for property: ${id}`);
+
+      return {
+        leaseDocumentUrl: templateUrl,
+        useLetBudTemplate: true,
+      };
+    } catch (error) {
+      logger.error(`Failed to generate lease template for property ${id}: ${error.message}`);
+      throw error;
+    }
   }
 
 
