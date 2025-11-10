@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node dist/server.js",
-    "build": "tsc && npx tsc-alias",
+    "build": "tsc && npx tsc-alias && npm run copy-templates",
+    "copy-templates": "mkdir -p dist/api/v1/templates && cp -r src/api/v1/templates/*.hbs dist/api/v1/templates/ 2>/dev/null || true",
     "dev": "nodemon src/server.ts --trace-warnings",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:run": "node ./node_modules/typeorm/cli.js migration:run -d dist/config/database.config.js",
