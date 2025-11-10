@@ -290,6 +290,20 @@ const PropertyRoute = Utility.swaggerRouteToAppRoute({
     },
 
     {
+      route: `/generate-static-lease-template`,
+      handler: PropertyController.generateStaticLeaseTemplate,
+      method: "get",
+      description: `Generate or retrieve the static LetBud lease agreement template. This template contains placeholder data and can be used by the frontend to display a preview of the LetBud template. Returns the S3 URL of the static template. Use the query parameter 'forceRegenerate=true' to force regeneration of the template.`,
+      parameters: [
+        { name: "forceRegenerate", in: "query", required: false, description: "Force regeneration of the template (default: false)" }
+      ],
+      sampleResponseData: Utility.responseFormatter({
+        leaseDocumentUrl: "https://bucket.s3.region.amazonaws.com/development/lease-agreements/letbud-static-template.pdf",
+        useLetBudTemplate: true
+      }, "Static lease template generated successfully"),
+    },
+
+    {
       route: `/:userId/getPropertyByUserId`,
       handler: PropertyController.getPropertyByUserId,
       method: "get",

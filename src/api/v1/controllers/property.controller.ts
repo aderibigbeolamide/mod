@@ -1017,6 +1017,24 @@ const PropertyController = {
       Utility.returnError(res, error);
     }
   },
+
+  generateStaticLeaseTemplate: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const forceRegenerate = req.query.forceRegenerate === 'true';
+
+      const templateUrl = await PropertyService.generateStaticLeaseTemplate(forceRegenerate);
+
+      Utility.sendResponse(res, {
+        data: {
+          leaseDocumentUrl: templateUrl,
+          useLetBudTemplate: true,
+        },
+        message: "Static lease template generated successfully",
+      });
+    } catch (error) {
+      Utility.returnError(res, error);
+    }
+  },
 };
 
 export const propertyProps = {

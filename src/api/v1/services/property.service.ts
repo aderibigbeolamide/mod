@@ -679,6 +679,19 @@ export default class PropertyService {
     }
   }
 
+  public static async generateStaticLeaseTemplate(forceRegenerate: boolean = false) {
+    try {
+      const templateUrl = await this.leaseAgreementService.generateStaticLeaseTemplate(forceRegenerate);
+      
+      logger.info('Static lease template generated successfully');
+
+      return templateUrl;
+    } catch (error) {
+      logger.error(`Failed to generate static lease template: ${error.message}`);
+      throw error;
+    }
+  }
+
 
   public static async disable(id: string) {
     if (!(await this.verifyID(id)))
