@@ -4,6 +4,8 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { dataSource } from '../../../config/database.config.js';
 import { RequestToRentEntity } from '../entities/request-to-rent.entity.js';
 import { PropertyEntity, PropertyUnitEntity } from '../entities/property.entity.js';
@@ -13,6 +15,8 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3
 import { logger } from '../../../config/logger.js';
 import PropertyService from './property.service.js';
 import { PDFDocument } from 'pdf-lib';
+
+const execAsync = promisify(exec);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -224,8 +228,92 @@ export class LeaseAgreementService {
         return html;
     }
 
+    private cachedChromiumPath: string | null = null;
+
+    private async findChromiumPath(): Promise<string | undefined> {
+        if (this.cachedChromiumPath) {
+            return this.cachedChromiumPath;
+        }
+
+        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+            try {
+                await fs.access(process.env.PUPPETEER_EXECUTABLE_PATH);
+                logger.info(`Using Chromium from PUPPETEER_EXECUTABLE_PATH: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+                this.cachedChromiumPath = process.env.PUPPETEER_EXECUTABLE_PATH;
+                return this.cachedChromiumPath;
+            } catch (error) {
+                logger.warn(`PUPPETEER_EXECUTABLE_PATH is set but file not accessible: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+            }
+        }
+
+        if (process.env.CHROMIUM_PATH) {
+            try {
+                await fs.access(process.env.CHROMIUM_PATH);
+                logger.info(`Using Chromium from CHROMIUM_PATH: ${process.env.CHROMIUM_PATH}`);
+                this.cachedChromiumPath = process.env.CHROMIUM_PATH;
+                return this.cachedChromiumPath;
+            } catch (error) {
+                logger.warn(`CHROMIUM_PATH is set but file not accessible: ${process.env.CHROMIUM_PATH}`);
+            }
+        }
+        
+        const execOptions = {
+            env: { ...process.env },
+            timeout: 5000,
+            shell: '/bin/bash'
+        };
+
+        try {
+            const { stdout } = await execAsync('command -v chromium', execOptions);
+            const chromiumPath = stdout.trim();
+            if (chromiumPath) {
+                await fs.access(chromiumPath);
+                logger.info(`Found Chromium using command -v: ${chromiumPath}`);
+                this.cachedChromiumPath = chromiumPath;
+                return this.cachedChromiumPath;
+            }
+        } catch (error) {
+            logger.warn('Could not find Chromium using command -v');
+        }
+
+        try {
+            const { stdout } = await execAsync('which chromium', execOptions);
+            const chromiumPath = stdout.trim();
+            if (chromiumPath) {
+                await fs.access(chromiumPath);
+                logger.info(`Found Chromium using which: ${chromiumPath}`);
+                this.cachedChromiumPath = chromiumPath;
+                return this.cachedChromiumPath;
+            }
+        } catch (error) {
+            logger.warn('Could not find Chromium using which command');
+        }
+
+        const fallbackPaths = [
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser'
+        ];
+
+        for (const fallbackPath of fallbackPaths) {
+            try {
+                await fs.access(fallbackPath);
+                logger.info(`Found Chromium at fallback path: ${fallbackPath}`);
+                this.cachedChromiumPath = fallbackPath;
+                return this.cachedChromiumPath;
+            } catch {
+                continue;
+            }
+        }
+
+        logger.error('Could not find Chromium in any known location. Please set PUPPETEER_EXECUTABLE_PATH or CHROMIUM_PATH environment variable.');
+        throw new Error('Chromium executable not found. Please set PUPPETEER_EXECUTABLE_PATH or CHROMIUM_PATH environment variable, or ensure Chromium is installed.');
+    }
+
     private async generatePDF(htmlContent: string): Promise<Buffer> {
+        const executablePath = await this.findChromiumPath();
+
         const browser = await puppeteer.launch({
+            executablePath,
             headless: true,
             args: [
                 '--no-sandbox',

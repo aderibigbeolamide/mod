@@ -5,7 +5,7 @@ integrations = ["javascript_database:1.0.0"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["glib", "nss", "nspr", "atk", "cups", "libdrm", "libxkbcommon", "xorg.libxcb", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXrandr", "pango", "cairo", "alsa-lib", "at-spi2-atk", "at-spi2-core"]
+packages = ["glib", "nss", "nspr", "atk", "cups", "libdrm", "libxkbcommon", "xorg.libxcb", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXrandr", "pango", "cairo", "alsa-lib", "at-spi2-atk", "at-spi2-core", "chromium", "freetype", "harfbuzz", "dbus", "xorg.libXi", "xorg.libXcursor", "xorg.libXtst", "xorg.libXScrnSaver", "gtk3", "mesa"]
 
 [workflows]
 runButton = "Project"
@@ -47,10 +47,6 @@ externalPort = 3002
 [[ports]]
 localPort = 34389
 externalPort = 3001
-
-[[ports]]
-localPort = 45971
-externalPort = 3003
 
 [deployment]
 deploymentTarget = "vm"
