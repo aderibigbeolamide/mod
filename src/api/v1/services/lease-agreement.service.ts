@@ -130,10 +130,10 @@ export class LeaseAgreementService {
     private async prepareLeaseData(
         requestToRent: RequestToRentEntity,
         lessorInfo: LessorInfoEntity,
-        includeSignatures: boolean = false
+        includeSignatures: boolean = false,
+        signatureOptions?: { includeLandlord?: boolean; includeTenant?: boolean }
     ): Promise<LeaseAgreementData> {
         // Normalize relations: some ORMs return relations as arrays depending on query shape,
-        // so pick the first item when an array is encountered.
         // so pick the first item when an array is encountered.
         const property = Array.isArray(requestToRent.property)
             ? (requestToRent.property[0] as PropertyEntity)
@@ -200,16 +200,19 @@ export class LeaseAgreementService {
             },
         };
 
-        if (includeSignatures) {
+        if (includeSignatures || signatureOptions) {
+            const includeLandlord = signatureOptions?.includeLandlord ?? includeSignatures;
+            const includeTenant = signatureOptions?.includeTenant ?? includeSignatures;
+
             leaseData.signature = {
-                landlordSignedAt: requestToRent.landlordSignedAt 
+                landlordSignedAt: includeLandlord && requestToRent.landlordSignedAt 
                     ? formatDate(requestToRent.landlordSignedAt)
                     : undefined,
-                landlordSignedByIp: requestToRent.landlordSignedByIp || undefined,
-                tenantSignedAt: requestToRent.leaseAgreementSignedAt
+                landlordSignedByIp: includeLandlord ? (requestToRent.landlordSignedByIp || undefined) : undefined,
+                tenantSignedAt: includeTenant && requestToRent.leaseAgreementSignedAt
                     ? formatDate(requestToRent.leaseAgreementSignedAt)
                     : undefined,
-                tenantSignedByIp: requestToRent.tenantSignedByIp || undefined,
+                tenantSignedByIp: includeTenant ? (requestToRent.tenantSignedByIp || undefined) : undefined,
             };
         }
 
@@ -384,9 +387,11 @@ export class LeaseAgreementService {
 
     async saveLeaseAgreementToS3(
         requestToRentId: string,
-        pdfBuffer: Buffer
+        pdfBuffer: Buffer,
+        suffix?: string
     ): Promise<string> {
-        const filename = `lease-agreement-${requestToRentId}-${Date.now()}.pdf`;
+        const suffixPart = suffix ? `-${suffix}` : '';
+        const filename = `lease-agreement-${requestToRentId}${suffixPart}-${Date.now()}.pdf`;
         const uploadKey = `${process.env.NODE_ENV}/lease-agreements/${filename}`;
         return this.saveToS3(pdfBuffer, uploadKey);
     }
@@ -411,7 +416,10 @@ export class LeaseAgreementService {
         };
     }
 
-    async generateFinalSignedLeaseAgreement(requestToRentId: string): Promise<{
+    async generateSignedLeaseAgreement(
+        requestToRentId: string,
+        options: { includeLandlord: boolean; includeTenant: boolean }
+    ): Promise<{
         pdfBuffer: Buffer;
         s3Url: string;
     }> {
@@ -436,7 +444,7 @@ export class LeaseAgreementService {
             throw new Error('Lessor information not found');
         }
 
-        const data = await this.prepareLeaseData(requestToRent, lessorInfo, true);
+        const data = await this.prepareLeaseData(requestToRent, lessorInfo, false, options);
 
         const logoAbsolutePath = path.resolve(__dirname, '../../../../resources/uploads/letbudLogo.png');
 
@@ -447,14 +455,17 @@ export class LeaseAgreementService {
 
         const pdfBuffer = await this.generatePDF(htmlContent);
 
-        const s3Url = await this.saveLeaseAgreementToS3(requestToRentId, pdfBuffer);
+        const signatureType = options.includeLandlord && options.includeTenant 
+            ? 'dual-signed'
+            : options.includeLandlord 
+            ? 'landlord-signed'
+            : options.includeTenant 
+            ? 'tenant-signed'
+            : 'unsigned';
 
-        await dataSource.getRepository(RequestToRentEntity).update(
-            { id: requestToRentId },
-            { leaseAgreementUrl: s3Url } as any
-        );
+        const s3Url = await this.saveLeaseAgreementToS3(requestToRentId, pdfBuffer, signatureType);
 
-        logger.info(`Final signed lease agreement saved to S3 and database for request: ${requestToRentId}`);
+        logger.info(`${signatureType} lease agreement saved to S3 for request: ${requestToRentId}`);
 
         return {
             pdfBuffer,
@@ -462,13 +473,23 @@ export class LeaseAgreementService {
         };
     }
 
+    async generateFinalSignedLeaseAgreement(requestToRentId: string): Promise<{
+        pdfBuffer: Buffer;
+        s3Url: string;
+    }> {
+        return this.generateSignedLeaseAgreement(requestToRentId, {
+            includeLandlord: true,
+            includeTenant: true,
+        });
+    }
+
     async generateSignaturePage(
         landlordName: string,
         landlordSignedAt: Date,
         landlordIp: string,
-        tenantName: string,
-        tenantSignedAt: Date,
-        tenantIp: string
+        tenantName?: string,
+        tenantSignedAt?: Date,
+        tenantIp?: string
     ): Promise<Buffer> {
         const formatDate = (date: Date): string => {
             return new Date(date).toLocaleDateString('en-US', {
@@ -479,6 +500,8 @@ export class LeaseAgreementService {
                 minute: '2-digit',
             });
         };
+
+        const includeTenant = tenantName && tenantSignedAt && tenantIp;
 
         const htmlContent = `
         <!DOCTYPE html>
@@ -537,6 +560,7 @@ export class LeaseAgreementService {
                 </div>
             </div>
 
+            ${includeTenant ? `
             <div class="signature-section">
                 <h2>Tenant Signature</h2>
                 <div class="signature-info">
@@ -552,6 +576,7 @@ export class LeaseAgreementService {
                     <span class="value">${tenantIp}</span>
                 </div>
             </div>
+            ` : ''}
         </body>
         </html>
         `;

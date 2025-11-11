@@ -13,6 +13,7 @@ import { RequestToRentEntity } from "../entities/request-to-rent.entity.js";
 import { User } from "../interfaces/user.interface.js";
 import { PropertyEntity, PropertyUnitEntity } from "../entities/property.entity.js";
 import { UserEntity } from "../entities/user.entity.js";
+import { LessorInfoEntity } from "../entities/lessor-info.entity.js";
 import { In } from "typeorm";
 import CommService from "./comm.service.js";
 import { property } from "lodash-es";
@@ -380,8 +381,9 @@ export default class RequestToRentService {
       const propertyMedia = request.property.propertyMedia;
 
       if (propertyMedia?.useLetBudTemplate) {
-        const leaseResult = await this.leaseAgreementService.generateFinalSignedLeaseAgreement(
-          requestToRentId
+        const leaseResult = await this.leaseAgreementService.generateSignedLeaseAgreement(
+          requestToRentId,
+          { includeLandlord: true, includeTenant: false }
         );
 
         await this.repo.update(
@@ -389,14 +391,54 @@ export default class RequestToRentService {
           { leaseAgreementUrl: leaseResult.s3Url } as any
         );
 
-        logger.info(`LetBud template lease agreement auto-generated for approved request: ${requestToRentId}`);
+        logger.info(`LetBud template lease agreement with landlord signature generated for approved request: ${requestToRentId}`);
       } else if (propertyMedia?.leaseDocumentUrl) {
-        await this.repo.update(
-          { id: requestToRentId },
-          { leaseAgreementUrl: propertyMedia.leaseDocumentUrl } as any
-        );
+        try {
+          const landlordPdfBuffer = await this.leaseAgreementService.downloadPDFFromS3(
+            propertyMedia.leaseDocumentUrl
+          );
 
-        logger.info(`Landlord's uploaded lease document assigned to request: ${requestToRentId}`);
+          const lessorInfo = await dataSource.getRepository(LessorInfoEntity).findOne({
+            where: { id: request.property.lessorInfoId },
+          });
+
+          const landlordName = lessorInfo 
+            ? `${lessorInfo.firstName || ''} ${lessorInfo.lastName || ''}`.trim()
+            : 'Unknown';
+
+          const landlordSignaturePage = await this.leaseAgreementService.generateSignaturePage(
+            landlordName,
+            request.landlordSignedAt || new Date(),
+            request.landlordSignedByIp || 'Unknown'
+          );
+
+          const mergedPdfBuffer = await this.leaseAgreementService.mergePDFs(
+            landlordPdfBuffer,
+            landlordSignaturePage
+          );
+
+          const s3Url = await this.leaseAgreementService.saveLeaseAgreementToS3(
+            requestToRentId,
+            mergedPdfBuffer,
+            'landlord-signed'
+          );
+
+          await this.repo.update(
+            { id: requestToRentId },
+            { leaseAgreementUrl: s3Url } as any
+          );
+
+          logger.info(`Landlord's uploaded lease document merged with landlord signature for request: ${requestToRentId}`);
+        } catch (error) {
+          logger.error(`Failed to process landlord's uploaded lease document for request ${requestToRentId}:`, error);
+          
+          await this.repo.update(
+            { id: requestToRentId },
+            { leaseAgreementUrl: propertyMedia.leaseDocumentUrl } as any
+          );
+
+          logger.warn(`Fallback: Using original uploaded lease document for request: ${requestToRentId}`);
+        }
       } else {
         logger.warn(`No lease document available for request: ${requestToRentId}`);
       }
