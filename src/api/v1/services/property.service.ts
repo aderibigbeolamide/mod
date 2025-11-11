@@ -968,10 +968,11 @@ export default class PropertyService {
 
         logger.info(`LetBud template lease agreement regenerated with both landlord and tenant signatures for request: ${request.id}`);
       } else {
-        const leaseDocumentUrl = request.leaseAgreementUrl || propertyMedia?.leaseDocumentUrl;
+        // Fetch the lease document from property media (which should have the landlord signature)
+        const leaseDocumentUrl = propertyMedia?.leaseDocumentUrl;
 
         if (!leaseDocumentUrl) {
-          throw new Error('No lease document available to sign');
+          throw new Error('No lease document available in property media to sign');
         }
 
         const landlordSignedPdfBuffer = await this.leaseAgreementService.downloadPDFFromS3(leaseDocumentUrl);
@@ -999,10 +1000,17 @@ export default class PropertyService {
           'dual-signed'
         );
 
+        // Update the property media's leaseDocumentUrl with the dual-signed version
+        await this.propertyMediaRepo.update(
+          { id: propertyMedia.id },
+          { leaseDocumentUrl: s3Url }
+        );
+
+        // Also update the request's leaseAgreementUrl to point to the same dual-signed document
         request.leaseAgreementUrl = s3Url;
         finalPdfBuffer = mergedPdfBuffer;
 
-        logger.info(`Landlord-signed lease document merged with dual signature page for request: ${request.id}`);
+        logger.info(`Lease document from property media merged with dual signature page and updated back to property media for request: ${request.id}`);
       }
     } catch (error) {
       logger.error(`Failed to process lease agreement signing for request ${request.id}:`, error);

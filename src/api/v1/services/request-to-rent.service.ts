@@ -11,7 +11,7 @@ import {
 } from "../dtos/request-to-rent.dto.js";
 import { RequestToRentEntity } from "../entities/request-to-rent.entity.js";
 import { User } from "../interfaces/user.interface.js";
-import { PropertyEntity, PropertyUnitEntity } from "../entities/property.entity.js";
+import { PropertyEntity, PropertyUnitEntity, PropertyMediaEntity } from "../entities/property.entity.js";
 import { UserEntity } from "../entities/user.entity.js";
 import { LessorInfoEntity } from "../entities/lessor-info.entity.js";
 import { In } from "typeorm";
@@ -423,21 +423,29 @@ export default class RequestToRentService {
             'landlord-signed'
           );
 
+          // Update the property media's leaseDocumentUrl with the signed version
+          const propertyMediaRepo = dataSource.getRepository(PropertyMediaEntity);
+          await propertyMediaRepo.update(
+            { id: propertyMedia.id },
+            { leaseDocumentUrl: s3Url }
+          );
+
+          // Also update the request's leaseAgreementUrl to point to the same signed document
           await this.repo.update(
             { id: requestToRentId },
             { leaseAgreementUrl: s3Url } as any
           );
 
-          logger.info(`Landlord's uploaded lease document merged with landlord signature for request: ${requestToRentId}`);
+          logger.info(`Landlord's lease document from property media merged with landlord signature and updated back to property media for request: ${requestToRentId}`);
         } catch (error) {
-          logger.error(`Failed to process landlord's uploaded lease document for request ${requestToRentId}:`, error);
+          logger.error(`Failed to process landlord's lease document from property media for request ${requestToRentId}:`, error);
           
           await this.repo.update(
             { id: requestToRentId },
             { leaseAgreementUrl: propertyMedia.leaseDocumentUrl } as any
           );
 
-          logger.warn(`Fallback: Using original uploaded lease document for request: ${requestToRentId}`);
+          logger.warn(`Fallback: Using original lease document from property media for request: ${requestToRentId}`);
         }
       } else {
         logger.warn(`No lease document available for request: ${requestToRentId}`);
