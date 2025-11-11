@@ -796,4 +796,97 @@ public async sendLandlordPaymentAlertEmail(
     }
   }
 
+  public async sendFinalizedLeaseAgreementEmail(
+    tenantEmail: string,
+    tenantName: string,
+    landlordEmail: string,
+    landlordName: string,
+    propertyAddress: string,
+    leaseAgreementPdfBuffer: Buffer
+  ): Promise<void> {
+    const transporter = nodemailer.createTransport(this.conf);
+
+    const tenantHtml = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <body style="font-family: system-ui; background: #f8fafc; padding: 20px;">
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 10px; padding: 20px;">
+        <h2 style="color: #1b3562;">🎉 Your Lease Agreement is Finalized!</h2>
+        <p>Hi ${tenantName},</p>
+        <p>Congratulations! Your lease agreement for <b>${propertyAddress}</b> has been fully executed.</p>
+        <p>Both you and the landlord have signed the lease agreement. Please find the finalized lease agreement attached to this email for your records.</p>
+        <p><b>Important:</b> Please keep this document safe as it contains important terms and conditions of your tenancy.</p>
+        <p>If you have any questions or concerns, please don't hesitate to contact us.</p>
+        <br/>
+        <p style="margin-top: 20px;">Best regards,<br/><b>Team Letbud</b></p>
+        <hr style="margin: 30px 0;">
+        <p style="font-size: 0.9em; color: #6b7280;">For support, reach out to us at <a href="mailto:supportbud@letbud.com">supportbud@letbud.com</a>.</p>
+      </div>
+    </body>
+    </html>
+    `;
+
+    const landlordHtml = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <body style="font-family: system-ui; background: #f8fafc; padding: 20px;">
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 10px; padding: 20px;">
+        <h2 style="color: #1b3562;">✅ Lease Agreement Fully Executed</h2>
+        <p>Hi ${landlordName},</p>
+        <p>The lease agreement for your property at <b>${propertyAddress}</b> has been fully executed.</p>
+        <p>Both you and the tenant (<b>${tenantName}</b>) have signed the lease agreement. Please find the finalized lease agreement attached to this email for your records.</p>
+        <p><b>Next Steps:</b> The tenant is scheduled to move in as per the agreed date. Please ensure the property is ready for occupancy.</p>
+        <p>If you have any questions or need assistance, please contact us.</p>
+        <br/>
+        <p style="margin-top: 20px;">Best regards,<br/><b>Team Letbud</b></p>
+        <hr style="margin: 30px 0;">
+        <p style="font-size: 0.9em; color: #6b7280;">For support, reach out to us at <a href="mailto:supportbud@letbud.com">supportbud@letbud.com</a>.</p>
+      </div>
+    </body>
+    </html>
+    `;
+
+    const tenantMailOptions = {
+      from: process.env.MAILER_USER,
+      to: tenantEmail,
+      subject: `🎉 Your Lease Agreement for ${propertyAddress} is Finalized`,
+      html: tenantHtml,
+      attachments: [
+        {
+          filename: `Lease_Agreement_${propertyAddress.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
+          content: leaseAgreementPdfBuffer,
+          contentType: 'application/pdf',
+        },
+      ],
+    };
+
+    const landlordMailOptions = {
+      from: process.env.MAILER_USER,
+      to: landlordEmail,
+      subject: `✅ Lease Agreement for ${propertyAddress} Fully Executed`,
+      html: landlordHtml,
+      attachments: [
+        {
+          filename: `Lease_Agreement_${propertyAddress.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
+          content: leaseAgreementPdfBuffer,
+          contentType: 'application/pdf',
+        },
+      ],
+    };
+
+    try {
+      await transporter.sendMail(tenantMailOptions);
+      logger.info(`Finalized lease agreement email sent to tenant: ${tenantEmail}`);
+    } catch (err: any) {
+      logger.error(`Error sending finalized lease agreement email to tenant: ${err.message}`);
+    }
+
+    try {
+      await transporter.sendMail(landlordMailOptions);
+      logger.info(`Finalized lease agreement email sent to landlord: ${landlordEmail}`);
+    } catch (err: any) {
+      logger.error(`Error sending finalized lease agreement email to landlord: ${err.message}`);
+    }
+  }
+
 }

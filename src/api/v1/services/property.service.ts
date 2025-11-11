@@ -32,6 +32,7 @@ import { MediaEntity } from "../entities/media.entity.js";
 import { MediaTypes } from "../enums/media-types.enum.js";
 import { MediaCategories } from "../enums/media-categories.enum.js";
 import { RequestToRentEntity } from "../entities/request-to-rent.entity.js";
+import { UserEntity } from "../entities/user.entity.js";
 import { Property } from "../interfaces/property.interface.js";
 import { PaymentRateDto } from "../dtos/paymentRate.dto.js";
 import { PropertyFeeEntity } from "../entities/property-fee.entity.js";
@@ -950,6 +951,8 @@ export default class PropertyService {
       request.tenantSignedByIp = clientIp;
     }
 
+    let finalPdfBuffer: Buffer | null = null;
+
     try {
       const property = Array.isArray(request.property) ? request.property[0] : request.property;
       const propertyMedia = property?.propertyMedia;
@@ -961,6 +964,7 @@ export default class PropertyService {
         );
 
         request.leaseAgreementUrl = leaseResult.s3Url;
+        finalPdfBuffer = leaseResult.pdfBuffer;
 
         logger.info(`LetBud template lease agreement regenerated with both landlord and tenant signatures for request: ${request.id}`);
       } else {
@@ -996,6 +1000,7 @@ export default class PropertyService {
         );
 
         request.leaseAgreementUrl = s3Url;
+        finalPdfBuffer = mergedPdfBuffer;
 
         logger.info(`Landlord-signed lease document merged with dual signature page for request: ${request.id}`);
       }
@@ -1005,6 +1010,39 @@ export default class PropertyService {
     }
 
     await this.requestToRentRepo.save(request);
+
+    try {
+      const property = Array.isArray(request.property) ? request.property[0] : request.property;
+      
+      const landlordUser = await dataSource.getRepository(UserEntity).findOne({
+        where: { id: property.lessorUserId },
+      });
+
+      const tenantName = `${request.firstName || ''} ${request.lastName || ''}`.trim();
+      const landlordName = landlordUser?.username || 
+        `${property.lessorInfo?.firstName || ''} ${property.lessorInfo?.lastName || ''}`.trim() || 
+        'Landlord';
+      
+      const landlordEmail = landlordUser?.email || property.lessorInfo?.email;
+      const tenantEmail = request.email;
+      const propertyAddress = `${property.address || ''}, ${property.city || ''}, ${property.state || ''}`.trim();
+
+      if (finalPdfBuffer && landlordEmail && tenantEmail) {
+        await this.commService.sendFinalizedLeaseAgreementEmail(
+          tenantEmail,
+          tenantName,
+          landlordEmail,
+          landlordName,
+          propertyAddress,
+          finalPdfBuffer
+        );
+        logger.info(`Finalized lease agreement emails sent to tenant and landlord for request: ${request.id}`);
+      } else {
+        logger.warn(`Could not send finalized lease agreement emails for request ${request.id}. Missing: ${!finalPdfBuffer ? 'PDF buffer' : ''} ${!landlordEmail ? 'landlord email' : ''} ${!tenantEmail ? 'tenant email' : ''}`);
+      }
+    } catch (emailError) {
+      logger.error(`Failed to send finalized lease agreement emails for request ${request.id}:`, emailError);
+    }
 
     return {
       message: "Lease agreement signed successfully.",
