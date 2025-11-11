@@ -11,15 +11,15 @@ import {
 } from "../dtos/request-to-rent.dto.js";
 import { RequestToRentEntity } from "../entities/request-to-rent.entity.js";
 import { User } from "../interfaces/user.interface.js";
-import { PropertyEntity, PropertyUnitEntity, PropertyMediaEntity } from "../entities/property.entity.js";
+import { PropertyEntity, PropertyMediaEntity, PropertyUnitEntity } from "../entities/property.entity.js";
 import { UserEntity } from "../entities/user.entity.js";
-import { LessorInfoEntity } from "../entities/lessor-info.entity.js";
 import { In } from "typeorm";
 import CommService from "./comm.service.js";
 import { property } from "lodash-es";
 import { userInfo } from "os";
 import { LeaseAgreementService } from "./lease-agreement.service.js";
 import { logger } from "../../../config/logger.js";
+import { LessorInfoEntity } from "../entities/lessor-info.entity.js";
 
 export default class RequestToRentService {
   static repo = dataSource.getRepository(RequestToRentEntity);
@@ -454,6 +454,7 @@ export default class RequestToRentService {
 
     return updatedRequest;
   }
+
 
 
   public static async fetchRenterApplications(renterId: string) {

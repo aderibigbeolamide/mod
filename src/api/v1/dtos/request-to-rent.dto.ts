@@ -26,6 +26,19 @@ export class CreateRequestToRentDto implements ICreateRequestToRent {
   @IsString()
   email: string;
 
+
+  @IsOptional()
+  @IsString()
+  landlordSignedAt: Date;
+
+  @IsOptional()
+  @IsString()
+  landlordSignedByIp?: string;
+
+  @IsOptional()
+  @IsString()
+  tenantSignedByIp?: string;
+
   @IsString()
   phoneNumber: string;
 
@@ -60,6 +73,9 @@ export class CreateRequestToRentDto implements ICreateRequestToRent {
       propertyId: null,
       isApprove: null,
       isComplete: null,
+      landlordSignedAt: undefined,
+      landlordSignedByIp: "",
+      tenantSignedByIp: ""
     });
   }
 }

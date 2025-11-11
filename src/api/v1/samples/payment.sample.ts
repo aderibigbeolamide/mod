@@ -86,9 +86,8 @@ export namespace PaymentSample {
     accessCode: "",
     authorizationUrl: "",
     propertyId: "example-property-id", // Mock property ID
-    unitId: "example-unit-id",       // Mock unit ID
-    // property: new PropertyEntity(),
-    // unit: new PropertyUnitEntity(),
+    unitId: "example-unit-id",
+    paymentExpiresAt: undefined
   };
 
   export const verifyPayment = {

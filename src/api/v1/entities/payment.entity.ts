@@ -54,6 +54,10 @@ export class PaymentEntity implements Payment {
   @Column({ nullable: false })
   reference: string;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  paymentExpiresAt: Date;
+
+
   @Column({ nullable: false })
   email: string;
 

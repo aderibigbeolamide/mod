@@ -292,6 +292,10 @@ export class PropertyMediaEntity extends BaseEntity implements PropertyMedia {
   })
   videoUrls: string[];
 
+  @Column({ type: 'timestamptz', nullable: true })
+  paymentExpiresAt: Date;
+
+
   @Column({
     type: "character varying",
     array: true,
@@ -299,8 +303,6 @@ export class PropertyMediaEntity extends BaseEntity implements PropertyMedia {
     default: [],
   })
   mediaIds: string[];
-
-
 
   @Column({ nullable: true })
   leaseDocumentName: string;

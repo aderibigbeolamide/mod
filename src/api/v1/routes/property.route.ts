@@ -276,7 +276,7 @@ const PropertyRoute = Utility.swaggerRouteToAppRoute({
       sampleResponseData: Utility.responseFormatter(PropertySample.property),
     },
 
-    {
+     {
       route: `/:propertyID/generate-lease-template`,
       handler: PropertyController.generateLeaseTemplate,
       method: "post",

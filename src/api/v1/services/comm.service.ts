@@ -796,6 +796,68 @@ public async sendLandlordPaymentAlertEmail(
     }
   }
 
+  public async sendPaymentExpiredRefundEmail(
+    tenantEmail: string,
+    tenantName: string,
+    propertyName: string,
+    unitName: string,
+    amount: number,
+    reference: string
+  ): Promise<void> {
+    const transporter = nodemailer.createTransport(this.conf);
+
+    const html = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <body style="font-family: system-ui; background: #f9fafb; padding: 20px;">
+    <div style="max-width: 600px; margin: auto; background: #ffffff; border-radius: 10px; padding: 25px;">
+      <h2 style="color: #e11d48;">Payment Expired & Refunded 💳</h2>
+      <p>Dear ${tenantName},</p>
+      <p>Your payment of <b>₦${amount.toLocaleString()}</b> for <b>${propertyName}</b> (${unitName}) was not completed within the allowed time and has therefore expired.</p>
+      <p>We’ve automatically processed a refund for this transaction.</p>
+      <p><b>Reference:</b> ${reference}</p>
+      <p>You should receive your refund within <b>5–10 business days</b>, depending on your bank.</p>
+      <br/>
+      <p>To complete your booking, please log in again and restart your payment process.</p>
+
+      <hr style="margin: 30px 0; border: 0; border-top: 1px solid #e5e7eb;" />
+      <p style="font-size: 0.9em; color: #6b7280;">
+        If you have any questions, reach out to us at 
+        <a href="mailto:supportbud@letbud.com">supportbud@letbud.com</a>.
+      </p>
+    </div>
+  </body>
+  </html>
+  `;
+
+    // ✅ Optional: Attach a simple refund receipt (PDF)
+    const receiptContent = `
+  Refund Receipt
+  ---------------
+  Name: ${tenantName}
+  Property: ${propertyName}
+  Unit: ${unitName}
+  Amount Refunded: ₦${amount.toLocaleString()}
+  Reference: ${reference}
+  Status: Refunded (Expired Payment)
+  `;
+
+    const receiptAttachment = Buffer.from(receiptContent, 'utf-8');
+
+    await transporter.sendMail({
+      from: process.env.MAILER_USER,
+      to: tenantEmail,
+      subject: `💰 Refund Processed for Expired Payment – ${propertyName}`,
+      html,
+      attachments: [
+        {
+          filename: `Refund_Receipt_${reference}.txt`,
+          content: receiptAttachment,
+        },
+      ],
+    });
+  }
+
   public async sendFinalizedLeaseAgreementEmail(
     tenantEmail: string,
     tenantName: string,
@@ -888,5 +950,6 @@ public async sendLandlordPaymentAlertEmail(
       logger.error(`Error sending finalized lease agreement email to landlord: ${err.message}`);
     }
   }
+
 
 }

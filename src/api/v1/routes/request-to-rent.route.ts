@@ -93,6 +93,9 @@ const RequestToRentRoute = Utility.swaggerRouteToAppRoute({
         summary: "Some summary",
         propertyId: "b43627cf-376b-4db9-b1f2-ba5379cd9f24",
         unitId: "079d662c-42c9-4f0e-bd84-aedfbe0dfc04",
+        landlordSignedAt: new Date(),
+        landlordSignedByIp: "127.0.0.1",
+        tenantSignedByIp: "127.0.0.1"
       }),
       sampleResponseData: {
         status: "Success",

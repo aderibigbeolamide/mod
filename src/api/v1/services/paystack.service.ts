@@ -34,6 +34,31 @@ export class PaystackApi extends PaystackBaseApi {
     );
   };
 
+//   //Payment TimeOut
+//   // ✅ Fetch payment session timeout from Paystack
+// getPaymentSessionTimeout = async (): Promise<number> => {
+//   try {
+//     const response = await this.get<
+//       PaystackAPIResponse<{
+//         payment_session_timeout: any; timeout: number 
+// }>
+//     >('/integration/payment_session_timeout', undefined, this.requestInit);
+
+//     if (response.data.payment_session_timeout) {
+//       console.log(`Paystack session timeout: ${response.data.payment_session_timeout} minutes`);
+//       return response.data.payment_session_timeout;
+//     }
+
+//     console.warn('⚠️ Could not fetch Paystack session timeout, defaulting to 30 minutes');
+//     return 30;
+//   } catch (error) {
+//     console.error('❌ Error fetching Paystack session timeout:', error.message || error);
+//     return 30; // default fallback
+//   }
+// };
+
+
+
   // Method to verify a payment
   verifyPayment = async (paymentReference: string) => {
     const response = await this.get<
@@ -63,44 +88,6 @@ export class PaystackApi extends PaystackBaseApi {
       console.error('Error cancelling payment:', error.response?.data || error.message || error);
     }
   }
-
-//   @Post("/cancel")
-// async cancelPayment(@Body() body: { unitId: string; payerId: string }) {
-//   await this.paymentService.cancelPayment(body.unitId, body.payerId);
-//   return { status: "success", message: "Payment cancelled, unit unlocked." };
-// }
-
-
-  // Method to fetch bank details
-  // fetchBanks = async (currency = 'NG'): Promise<BankDetails[]> => {
-  //   try {
-  //     // const endpoint = `/bank?currency=${currency}&enabled_for_verification=true`;
-  //     const response = await this.get<PaystackAPIResponse<any>>(
-  //       `/bank?currency=${currency}&enabled_for_verification=true`,
-  //       undefined,
-  //       this.requestInit
-  //     );
-
-  //     console.log('Raw response data from Paystack:', response.data);
-
-  //     const banks = response.data?.data;
-  //     console.log('Full API Response:', response);
-  //     if (!Array.isArray(banks)) {
-  //       throw new Error("Unexpected response format from Paystack API.");
-  //     }
-
-  //     // Map the response to match the BankDetails interface
-  //     return banks.map((bank) => ({
-  //       bankName: bank.name,
-  //       bankCode: bank.code,
-  //       currencyCode: bank.currency || null, // Handle optional fields
-  //       type: bank.type || null,           // Handle optional fields
-  //     }));
-  //   } catch (error) {
-  //     console.error("Error fetching banks:", error.message || error);
-  //     throw new Error("Failed to fetch bank names and codes. Please try again later.");
-  //   }
-  // };
 
   // Method to fetch account details
   fetchAccountDetails = async (

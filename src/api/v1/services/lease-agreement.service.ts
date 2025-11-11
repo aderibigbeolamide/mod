@@ -577,8 +577,8 @@ export class LeaseAgreementService {
     }
 
     async mergePDFs(pdf1Buffer: Buffer, pdf2Buffer: Buffer): Promise<Buffer> {
-        const pdf1Doc = await PDFDocument.load(pdf1Buffer);
-        const pdf2Doc = await PDFDocument.load(pdf2Buffer);
+        const pdf1Doc = await PDFDocument.load(new Uint8Array(pdf1Buffer));
+        const pdf2Doc = await PDFDocument.load(new Uint8Array(pdf2Buffer));
 
         const mergedPdf = await PDFDocument.create();
 
@@ -785,7 +785,7 @@ export class LeaseAgreementService {
                     city: '[City]',
                     state: '[State]',
                     type: 'Residential',
-                    leaseTerm: '12 months',
+                    leaseTerm: '0 months',
                     leasePolicy: {
                         smokingAllowed: false,
                         petsAllowed: false,
@@ -801,11 +801,11 @@ export class LeaseAgreementService {
                 unit: {
                     label: '[Unit Number]',
                     price: 0,
-                    noOfBedrooms: 1,
-                    noOfBathrooms: 1,
+                    noOfBedrooms: 0,
+                    noOfBathrooms: 0,
                     squareFeet: undefined,
                     dateAvailable: formatDate(new Date()),
-                    paymentSchedule: 'MONTHLY',
+                    paymentSchedule: 'MONTHLY/YEARLY',
                     hasAgencyFee: false,
                     agencyFeePercentage: undefined,
                     fixedAgencyFee: undefined,

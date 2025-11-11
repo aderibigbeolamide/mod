@@ -1,4 +1,5 @@
 export interface PaystackAPIResponse<T> {
+    pa: any;
     status: boolean;
     message: string;
     data: T;

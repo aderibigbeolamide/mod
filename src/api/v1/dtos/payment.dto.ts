@@ -45,6 +45,11 @@ export class PaymentDto implements Partial<Payment> {
     @IsOptional()
     billingDetails?: any;
 
+    @IsOptional()
+    @IsString()
+    paymentExpiresAt: Date;
+
+
     @IsEnum(PaymentStatuses)
     @IsOptional()
     status?: PaymentStatuses = PaymentStatuses.INITIALIZED;
@@ -95,6 +100,7 @@ export class PaymentDto implements Partial<Payment> {
             accessCode: '',
             propertyId: '',
             unitId: '',
+            paymentExpiresAt: null,
         });
     }
 }

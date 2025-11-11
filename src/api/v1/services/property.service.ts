@@ -32,7 +32,6 @@ import { MediaEntity } from "../entities/media.entity.js";
 import { MediaTypes } from "../enums/media-types.enum.js";
 import { MediaCategories } from "../enums/media-categories.enum.js";
 import { RequestToRentEntity } from "../entities/request-to-rent.entity.js";
-import { UserEntity } from "../entities/user.entity.js";
 import { Property } from "../interfaces/property.interface.js";
 import { PaymentRateDto } from "../dtos/paymentRate.dto.js";
 import { PropertyFeeEntity } from "../entities/property-fee.entity.js";
@@ -46,10 +45,11 @@ import CommService from "./comm.service.js";
 import { logger } from "../../../config/logger.js";
 import { BillingAnalytics } from "../interfaces/billingAnalytics.interface.js";
 import MediaService from "./media.service.js";
-import { LeaseAgreementService } from "./lease-agreement.service.js";
 
 import type { Request } from "express";
 import { LeaseTerms } from "../enums/lease.terms.enum.js";
+import { LeaseAgreementService } from "./lease-agreement.service.js";
+import { UserEntity } from "../entities/user.entity.js";
 
 export default class PropertyService {
   static repo = dataSource.getRepository(PropertyEntity);
@@ -63,9 +63,9 @@ export default class PropertyService {
   static requestToTourRepo = dataSource.getRepository(TourRequestEntity);
   static paymentRepo = dataSource.getRepository(PaymentEntity);
   static paystackApi = new PaystackApi();
+  static leaseAgreementService = new LeaseAgreementService();
   unitRepo: any;
   static commService = new CommService();
-  static leaseAgreementService = new LeaseAgreementService();
 
   public static getRates(price: number, hasAgencyFee: boolean): [number, number] {
     const rateMap = [
@@ -555,7 +555,7 @@ export default class PropertyService {
     return this.getByID(id);
   }
 
-  public static async finalizeProperty(id: string, user: User) {
+    public static async finalizeProperty(id: string, user: User) {
     if (!(await this.verifyID(id)))
       Utility.throwException({
         statusNo: 400,
@@ -616,16 +616,16 @@ export default class PropertyService {
       propertyMedia.leaseDocumentName = leaseDocument.mediaFileName;
       propertyMedia.useLetBudTemplate = false;
     } else {
-      // no lease document uploaded, use LetBud template and generate with property details
+      // no lease document uploaded, use LetBud template and generate preview
       propertyMedia.useLetBudTemplate = true;
       propertyMedia.leaseDocumentName = 'LetBud Lease Agreement Template';
       
       try {
-        const templateUrl = await this.leaseAgreementService.generatePropertyLeaseTemplate(id);
-        propertyMedia.leaseDocumentUrl = templateUrl;
-        logger.info(`Property lease template generated for property: ${id}`);
+        const previewUrl = await this.leaseAgreementService.generatePreviewLeaseDocument(id);
+        propertyMedia.leaseDocumentUrl = previewUrl;
+        logger.info(`Preview lease document generated for property: ${id}`);
       } catch (error) {
-        logger.error(`Failed to generate lease template for property ${id}: ${error.message}`);
+        logger.error(`Failed to generate preview lease document for property ${id}: ${error.message}`);
         propertyMedia.leaseDocumentUrl = null;
       }
     }
@@ -680,7 +680,7 @@ export default class PropertyService {
     }
   }
 
-  public static async generateStaticLeaseTemplate(forceRegenerate: boolean = false) {
+    public static async generateStaticLeaseTemplate(forceRegenerate: boolean = false) {
     try {
       const templateUrl = await this.leaseAgreementService.generateStaticLeaseTemplate(forceRegenerate);
       
@@ -692,6 +692,7 @@ export default class PropertyService {
       throw error;
     }
   }
+
 
 
   public static async disable(id: string) {
@@ -820,7 +821,7 @@ export default class PropertyService {
 
     // Check if user has made a payment
     const hasPaid = await this.paymentRepo.findOne({
-      where: { payer: { id: userId }, unit: { id: unitId }, status: PaymentStatuses.CONFIRMED }, 
+      where: { payer: { id: userId }, unit: { id: unitId }, status: PaymentStatuses.CONFIRMED },
     });
 
     // Check if user application is approved
@@ -919,6 +920,7 @@ export default class PropertyService {
     };
   }
 
+  // sign lease agreement
   public static async signLeaseAgreement(userId: string, unitId: string, clientIp?: string) {
     const request = await this.requestToRentRepo.findOne({
       where: {
@@ -926,7 +928,7 @@ export default class PropertyService {
         unit: { id: unitId },
         isApprove: true,
       },
-      relations: ['property', 'property.propertyMedia', 'property.lessorInfo'],
+      relations: ['property', 'property.propertyMedia', 'property.lessor'],
     });
 
     if (!request) {
@@ -977,7 +979,7 @@ export default class PropertyService {
 
         const landlordSignedPdfBuffer = await this.leaseAgreementService.downloadPDFFromS3(leaseDocumentUrl);
 
-        const landlordName = `${property.lessorInfo?.firstName || ''} ${property.lessorInfo?.lastName || ''}`.trim();
+        const landlordName = `${property.lessor?.firstName || ''} ${property.lessor?.lastName || ''}`.trim();
         const tenantName = `${request.firstName || ''} ${request.lastName || ''}`.trim();
 
         const dualSignaturePageBuffer = await this.leaseAgreementService.generateSignaturePage(
@@ -1028,10 +1030,10 @@ export default class PropertyService {
 
       const tenantName = `${request.firstName || ''} ${request.lastName || ''}`.trim();
       const landlordName = landlordUser?.username || 
-        `${property.lessorInfo?.firstName || ''} ${property.lessorInfo?.lastName || ''}`.trim() || 
+        `${property.lessor?.firstName || ''} ${property.lessor?.lastName || ''}`.trim() || 
         'Landlord';
       
-      const landlordEmail = landlordUser?.email || property.lessorInfo?.email;
+      const landlordEmail = landlordUser?.email || property.lessor?.email;
       const tenantEmail = request.email;
       const propertyAddress = `${property.address || ''}, ${property.city || ''}, ${property.state || ''}`.trim();
 
@@ -1311,7 +1313,7 @@ export default class PropertyService {
         tableName: "property",
       },
       [
-        { field: "isComplete"},
+        { field: "isComplete" },
         {
           field: "lessorUserId",
           subFields: ["lessorUserId"],
@@ -1763,7 +1765,7 @@ export default class PropertyService {
 
   // }
 
-    static searchPropertiesStruct: SearchQueryItem<PropertySearchQueryDto>[] = [
+  static searchPropertiesStruct: SearchQueryItem<PropertySearchQueryDto>[] = [
     { field: "address", condition: SearchCondition.fuzzy },
     { field: "hasCautionFee", subFields: ["cautionFee", "hasCautionFee"], condition: SearchCondition.fuzzy },
     { field: "city", condition: SearchCondition.fuzzy },
@@ -1858,32 +1860,32 @@ export default class PropertyService {
     { field: "transactionType", condition: SearchCondition.fuzzy },
     { field: "type", condition: SearchCondition.fuzzy },
   ];
-  
 
 
 
-public static async searchProperties(query: PropertySearchQueryDto): Promise<SearchResponse<PropertyEntity>> {
-  const result = await SearchService.search(
-    {
-      entity: PropertyEntity,
-      tableName: 'property',
-    },
-    this.searchPropertiesStruct,
-    query,
-    [
-      // { columnName: 'units', tableName: 'unit' },
-      // { columnName: 'propertyMedia', tableName: 'propertyMedia' },
-    ],
-    false,
-    true,
-  );
 
-  // result.data = result.data.filter((property: PropertyEntity) =>
-  //   // property.units?.some((unit: PropertyUnitEntity) => unit.isPaid === false)
-  // );
+  public static async searchProperties(query: PropertySearchQueryDto): Promise<SearchResponse<PropertyEntity>> {
+    const result = await SearchService.search(
+      {
+        entity: PropertyEntity,
+        tableName: 'property',
+      },
+      this.searchPropertiesStruct,
+      query,
+      [
+        // { columnName: 'units', tableName: 'unit' },
+        // { columnName: 'propertyMedia', tableName: 'propertyMedia' },
+      ],
+      false,
+      true,
+    );
 
-  return result;
-}
+    // result.data = result.data.filter((property: PropertyEntity) =>
+    //   // property.units?.some((unit: PropertyUnitEntity) => unit.isPaid === false)
+    // );
+
+    return result;
+  }
 
 
 
@@ -2185,94 +2187,52 @@ public static async searchProperties(query: PropertySearchQueryDto): Promise<Sea
   //   return rentedUnits;
   // }
 
-public static async getRentedUnits(userId: string, query: SearchQuery<any>) {
-  if (!userId) {
-    Utility.throwException({
-      statusNo: 400,
-      message: "User ID is required to fetch rented units.",
-    });
-  }
+  public static async getRentedUnits(
+    tenantUserId: string,
+    query: SearchQuery<any>,
+  ) {
+    if (!tenantUserId) {
+      Utility.throwException({
+        statusNo: 400,
+        message: "User ID is required to fetch rented properties.",
+      });
+    }
 
-  // Build filter options
-  const filter: any = {
-    ...query,
-    userId, // tenant’s user ID
-  };
-
-  // Optional filter for completion
-  if (query.hasOwnProperty("isComplete")) {
-    filter.isComplete = query.isComplete === "true";
-  }
-
-  // ✅ Fetch all rental requests by this tenant, including propertyMedia
-  const rentRequests = await SearchService.search(
-    {
-      entity: RequestToRentEntity,
-      tableName: "request_to_rent",
-    },
-    [
-      { field: "isComplete" },
-      { field: "isApprove" },
-      { field: "applicationWithdrawn" },
-    ],
-    filter,
-    [
-      { columnName: "property", tableName: "property" },
-      { columnName: "unit", tableName: "unit" },
-      { columnName: "user", tableName: "user" },
-      { columnName: "property.propertyMedia", tableName: "propertyMedia" }, // ✅ nested join
-    ],
-    false,
-  );
-
-  // ✅ Map to desired output structure
-  const rentedUnits = rentRequests.data.map((request) => {
-      const property = request.property ?? ({} as PropertyEntity);
-      const propertyMedia = (property?.propertyMedia ?? ({} as PropertyMediaEntity)) as PropertyMediaEntity;
-      const rentedDate = request.leaseAgreementSignedAt || request.createdAt;
-
-      return {
-        rentedDate,
-        tenantName: `${request.firstName ?? ""} ${request.lastName ?? ""}`.trim(),
-        tenantEmail: request.email,
-        tenantPhone: request.phoneNumber,
-        propertyId: property.id,
-        propertyAddress: property.address,
-        isApproved: request.isApprove,
-        isComplete: request.isComplete,
-        propertyState: property.state,
-        propertyArea: property.area,
-        propertyLga: property.lga,
-        propertyDescription: property.description,
-        propertyFloorNumber: property.floorNumber,
-        propertyIsComplete: property.isComplete,
-
-        // ✅ Units
-        propertyUnits: Array.isArray(property.units)
-          ? property.units.map((u) => ({
-              unitLabel: u.label,
-              unitPrice: u.price,
-              unitIsPaid: u.isPaid,
-              unitNoOfBedrooms: u.noOfBedrooms,
-              unitNoOfBathrooms: u.noOfBathrooms,
-              unitNoOfBathroomsEnsuite: u.noOfBathroomsEnsuite
-            }))
-          : [],
-
-  // ✅ Property media
-      propertyMedia: {
-        images: propertyMedia.imageUrls ?? [],
-        videos: propertyMedia.videoUrls ?? [],
-        leaseDocumentUrl: propertyMedia.leaseDocumentUrl ?? null,
-        useLetBudTemplate: propertyMedia.useLetBudTemplate ?? false,
-      },
+    // Build filter object
+    const filter: any = {
+      ...query,
+      userId: tenantUserId, // tenant’s user ID from RequestToRentEntity
     };
-  });
 
-  return {
-    ...rentRequests,
-    data: rentedUnits,
-  };
-}
+    // Optional filter for completion
+    if (query.hasOwnProperty("isComplete")) {
+      filter.isComplete = query.isComplete === "true";
+    }
+
+    // Search for properties the user has requested to rent
+    return await SearchService.search(
+      {
+        entity: RequestToRentEntity,
+        tableName: "request_to_rent",
+      },
+      [
+        { field: "isComplete" },
+        {
+          field: "userId",
+          subFields: ["userId"],
+          condition: SearchCondition.equal,
+        },
+      ],
+      filter,
+      [
+        { columnName: "property", tableName: "property" },
+        { columnName: "property.propertyMedia", tableName: "propertyMedia" },
+        { columnName: "unit", tableName: "unit" },
+      ],
+      false,
+      false,
+    );
+  }
+
 
 }

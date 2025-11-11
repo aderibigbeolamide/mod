@@ -104,10 +104,10 @@ export class RequestToRentEntity extends BaseEntity implements IRequestToRent {
 
   @Column({ type: "boolean", default: false }) leaseAgreementSigned: boolean;
 
-  @Column({ type: 'timestamp', nullable: true }) leaseAgreementSignedAt: Date;
-
   @Column({ type: 'character varying', nullable: true })
   leaseAgreementUrl?: string;
+
+  @Column({ type: 'timestamp', nullable: true }) leaseAgreementSignedAt: Date;
 
   @Column({ type: 'timestamp', nullable: true }) landlordSignedAt: Date;
 
