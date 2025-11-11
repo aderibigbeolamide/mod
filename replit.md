@@ -20,7 +20,7 @@ Letbud is built on Node.js with Express.js for API handling and TypeORM for data
     - Supports landlord-uploaded lease documents or system-generated templates.
     - Utilizes `pdf-lib` for PDF manipulation, including merging documents and appending signature pages.
     - Employs a "Generate-on-Demand, Save-Once" strategy to optimize S3 storage, where PDFs are generated dynamically for previews and only the final, signed document is saved.
-    - Comprehensive signature tracking, including timestamps and IP addresses for both landlord and tenant.
+    - Comprehensive signature tracking, including timestamps and IP addresses (stored in database only, not displayed in PDF) for both landlord and tenant.
     - Automated email notifications with attached finalized lease PDFs to both landlords and tenants upon full execution.
     - `propertyMedia.leaseDocumentUrl` serves as the single source of truth for lease documents throughout the signing process.
 - **Payment Processing**: Functionality for handling rental payments and tracking transactions.
