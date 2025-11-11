@@ -389,14 +389,14 @@
                 <div class="signature-line">
                     <div class="signature-label">Landlord Signature</div>
                     <div style="margin-top: 10px;">Name: {{lessor.firstName}} {{lessor.lastName}}</div>
-                    <div>Date: _____________________</div>
+                    <div>Date: {{#if signature.landlordSignedAt}}{{signature.landlordSignedAt}}{{else}}_____________________{{/if}}</div>
                 </div>
             </div>
             <div>
                 <div class="signature-line">
                     <div class="signature-label">Tenant Signature</div>
                     <div style="margin-top: 10px;">Name: {{tenant.firstName}} {{tenant.lastName}}</div>
-                    <div>Date: _____________________</div>
+                    <div>Date: {{#if signature.tenantSignedAt}}{{signature.tenantSignedAt}}{{else}}_____________________{{/if}}</div>
                 </div>
             </div>
         </div>

@@ -496,8 +496,6 @@ export class LeaseAgreementService {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
             });
         };
 
@@ -505,70 +503,105 @@ export class LeaseAgreementService {
 
         const htmlContent = `
         <!DOCTYPE html>
-        <html>
+        <html lang="en">
         <head>
             <meta charset="UTF-8">
             <style>
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+
                 body {
-                    font-family: Arial, sans-serif;
-                    padding: 40px;
+                    font-family: 'Georgia', 'Times New Roman', serif;
                     line-height: 1.6;
-                }
-                h1 {
-                    text-align: center;
                     color: #333;
-                    margin-bottom: 40px;
+                    padding: 40px 60px;
+                    max-width: 1000px;
+                    margin: 0 auto;
                 }
-                .signature-section {
-                    margin: 30px 0;
-                    padding: 20px;
-                    border: 1px solid #ddd;
-                    border-radius: 8px;
-                }
-                .signature-section h2 {
-                    color: #555;
-                    margin-bottom: 15px;
-                }
-                .signature-info {
-                    margin: 10px 0;
-                }
-                .label {
+
+                .section-title {
+                    font-size: 18px;
                     font-weight: bold;
-                    color: #666;
+                    color: #2c3e50;
+                    margin-bottom: 15px;
+                    border-left: 4px solid #3498db;
+                    padding-left: 10px;
                 }
-                .value {
-                    color: #333;
+
+                .signature-section {
+                    margin-top: 60px;
+                    page-break-inside: avoid;
+                }
+
+                .signature-box {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 60px;
+                    margin-top: 40px;
+                }
+
+                .signature-line {
+                    border-top: 2px solid #333;
+                    padding-top: 10px;
+                }
+
+                .signature-label {
+                    font-weight: bold;
+                    margin-bottom: 5px;
+                }
+
+                .footer {
+                    margin-top: 60px;
+                    padding-top: 20px;
+                    border-top: 2px solid #ecf0f1;
+                    text-align: center;
+                    font-size: 12px;
+                    color: #7f8c8d;
                 }
             </style>
         </head>
         <body>
-            <h1>Lease Agreement - Digital Signatures</h1>
-            
             <div class="signature-section">
-                <h2>Landlord Signature</h2>
-                <div class="signature-info">
-                    <span class="label">Name:</span>
-                    <span class="value">${landlordName}</span>
-                </div>
-                <div class="signature-info">
-                    <span class="label">Signed At:</span>
-                    <span class="value">${formatDate(landlordSignedAt)}</span>
+                <div class="section-title">Signatures</div>
+                <p style="margin-bottom: 30px;">By signing below, both parties acknowledge that they have read, understood, and
+                    agree to be bound by the terms and conditions of this Lease Agreement.</p>
+
+                <div class="signature-box">
+                    <div>
+                        <div class="signature-line">
+                            <div class="signature-label">Landlord Signature</div>
+                            <div style="margin-top: 10px;">Name: ${landlordName}</div>
+                            <div>Date: ${formatDate(landlordSignedAt)}</div>
+                        </div>
+                    </div>
+                    ${includeTenant ? `
+                    <div>
+                        <div class="signature-line">
+                            <div class="signature-label">Tenant Signature</div>
+                            <div style="margin-top: 10px;">Name: ${tenantName}</div>
+                            <div>Date: ${formatDate(tenantSignedAt)}</div>
+                        </div>
+                    </div>
+                    ` : `
+                    <div>
+                        <div class="signature-line">
+                            <div class="signature-label">Tenant Signature</div>
+                            <div style="margin-top: 10px;">Name: _____________________</div>
+                            <div>Date: _____________________</div>
+                        </div>
+                    </div>
+                    `}
                 </div>
             </div>
 
-            ${includeTenant ? `
-            <div class="signature-section">
-                <h2>Tenant Signature</h2>
-                <div class="signature-info">
-                    <span class="label">Name:</span>
-                    <span class="value">${tenantName}</span>
-                </div>
-                <div class="signature-info">
-                    <span class="label">Signed At:</span>
-                    <span class="value">${formatDate(tenantSignedAt)}</span>
-                </div>
+            <div class="footer">
+                <p>This lease agreement is generated through LetBud Property Management Platform</p>
+                <p>For questions or support, please contact LetBud at support@letbud.com</p>
+                <p style="margin-top: 10px;">Document Generated: ${formatDate(new Date())}</p>
             </div>
-            ` : ''}
         </body>
         </html>
         `;
