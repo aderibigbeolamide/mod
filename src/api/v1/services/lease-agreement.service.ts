@@ -554,10 +554,6 @@ export class LeaseAgreementService {
                     <span class="label">Signed At:</span>
                     <span class="value">${formatDate(landlordSignedAt)}</span>
                 </div>
-                <div class="signature-info">
-                    <span class="label">IP Address:</span>
-                    <span class="value">${landlordIp}</span>
-                </div>
             </div>
 
             ${includeTenant ? `
@@ -570,10 +566,6 @@ export class LeaseAgreementService {
                 <div class="signature-info">
                     <span class="label">Signed At:</span>
                     <span class="value">${formatDate(tenantSignedAt)}</span>
-                </div>
-                <div class="signature-info">
-                    <span class="label">IP Address:</span>
-                    <span class="value">${tenantIp}</span>
                 </div>
             </div>
             ` : ''}
