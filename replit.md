@@ -12,6 +12,49 @@ Letbud is a backend API service built with Node.js, Express, and TypeORM. It pro
 
 ## Recent Changes
 
+### November 11, 2025: Email Notifications for Finalized Lease Agreements
+
+Implemented automated email notifications that are sent to both tenant and landlord when a lease agreement is fully executed (after tenant signature).
+
+#### 🎯 Key Features
+
+**Email Delivery:**
+- Sends email to **both tenant and landlord** immediately after tenant signs the lease
+- Includes the **final signed lease PDF** as an attachment
+- Separate, personalized email templates for tenant and landlord
+- Graceful error handling - email failures won't break the lease signing process
+
+**Email Content:**
+- **Tenant Email**: Congratulatory message with next steps and reminder to keep the lease document safe
+- **Landlord Email**: Confirmation of fully executed lease with tenant details and property preparation reminders
+- Both emails include professional HTML formatting with proper branding
+
+**Implementation Details:**
+- New `sendFinalizedLeaseAgreementEmail()` method in `CommService` handles email composition and delivery
+- PDF buffer captured during lease generation (works for both LetBud templates and uploaded documents)
+- Landlord email resolved from `UserEntity` with fallback to `LessorInfo`
+- Comprehensive logging for email success/failure tracking
+- Each email sent independently with dedicated try/catch blocks
+
+#### 🔄 Updated Workflow
+
+1. **Tenant Signs Lease** (final step in lease agreement process)
+   - Tenant signs via `POST /api/v1/property/signLeaseAgreement`
+   - System regenerates PDF with both signatures
+   - Saves final PDF to S3
+   - **NEW:** Sends emails to both tenant and landlord with PDF attachment
+   - Updates database with complete signature tracking
+
+#### 📦 Technical Changes
+
+- Added `sendFinalizedLeaseAgreementEmail()` to `CommService` with PDF attachment support
+- Modified `PropertyService.signLeaseAgreement()` to:
+  - Capture PDF buffer from both template and custom document flows
+  - Fetch landlord contact information
+  - Trigger email sending after successful lease finalization
+- Uses Nodemailer's attachment feature for PDF delivery
+- Error handling ensures email failures are logged but don't prevent lease completion
+
 ### November 7, 2025: Lease Agreement Refactoring
 
 Refactored lease agreement functionality to consolidate all operations through property and request-to-rent endpoints, eliminating separate lease agreement controller and routes.
