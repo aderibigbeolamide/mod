@@ -857,6 +857,7 @@ export default class PropertyService {
       isApproved: !!isApproved,
       leaseAgreementSigned: !!leaseAgreementSigned,
       leaseAgreementSignedDate: leaseAgreementSigned?.leaseAgreementSignedAt || null,
+      leaseAgreementUrl: leaseAgreementSigned?.leaseAgreementUrl || null,
     };
   }
 
@@ -1023,12 +1024,17 @@ export default class PropertyService {
 
         logger.info(`Lease document from property media merged with dual signature page and updated back to property media for request: ${request.id}`);
       }
+      
+      // Log the URL that will be saved
+      logger.info(`Setting leaseAgreementUrl for request ${request.id}: ${request.leaseAgreementUrl}`);
     } catch (error) {
       logger.error(`Failed to process lease agreement signing for request ${request.id}:`, error);
       throw error;
     }
 
-    await this.requestToRentRepo.save(request);
+    // Save the updated request with the leaseAgreementUrl
+    const savedRequest = await this.requestToRentRepo.save(request);
+    logger.info(`Successfully saved leaseAgreementUrl to database for request ${request.id}: ${savedRequest.leaseAgreementUrl}`);
 
     try {
       const property = Array.isArray(request.property) ? request.property[0] : request.property;
