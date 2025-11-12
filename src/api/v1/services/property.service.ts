@@ -953,6 +953,8 @@ export default class PropertyService {
       request.tenantSignedByIp = clientIp;
     }
 
+    await this.requestToRentRepo.save(request);
+
     let finalPdfBuffer: Buffer | null = null;
 
     try {
