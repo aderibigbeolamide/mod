@@ -50,6 +50,7 @@ import type { Request } from "express";
 import { LeaseTerms } from "../enums/lease.terms.enum.js";
 import { LeaseAgreementService } from "./lease-agreement.service.js";
 import { UserEntity } from "../entities/user.entity.js";
+import { LessorInfoEntity } from "../entities/lessor-info.entity.js";
 
 export default class PropertyService {
   static repo = dataSource.getRepository(PropertyEntity);
@@ -981,7 +982,13 @@ export default class PropertyService {
 
         const landlordSignedPdfBuffer = await this.leaseAgreementService.downloadPDFFromS3(leaseDocumentUrl);
 
-        const landlordName = `${property.lessor?.firstName || ''} ${property.lessor?.lastName || ''}`.trim();
+        const lessorInfo = await dataSource.getRepository(LessorInfoEntity).findOne({
+          where: { id: property.lessorInfoId },
+        });
+
+        const landlordName = lessorInfo
+          ? `${lessorInfo.firstName || ''} ${lessorInfo.lastName || ''}`.trim()
+          : 'Unknown';
         const tenantName = `${request.firstName || ''} ${request.lastName || ''}`.trim();
 
         const dualSignaturePageBuffer = await this.leaseAgreementService.generateSignaturePage(
